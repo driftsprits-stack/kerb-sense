@@ -149,7 +149,12 @@ input[type=range].tier-slider:focus-visible{outline:4px solid #2B2015;outline-of
 .stat b{display:block;font-size:27px;color:var(--warm-white);line-height:1.1}
 .stat span{display:block;font-size:10.5px;letter-spacing:1px;color:rgba(255,243,210,.62)}
 
-.cause{margin:0 0 2px;font-size:14px;color:var(--ink-soft)}
+.cause{margin:0 0 6px;font-size:17px;font-weight:700;color:var(--ink)}
+/* The lesson is the entire point of dying, so it gets real visual weight
+   rather than sitting in the same grey as the incidental stats. */
+.lesson{margin:0 0 14px;padding:11px 13px;border-radius:11px;font-size:13.5px;
+  line-height:1.5;color:var(--ink);background:rgba(242,179,61,.16);
+  border-left:4px solid #F2B33D;text-align:left}
 .feedback{
   margin:12px 0 0;padding:12px 14px;
   font-size:15px;line-height:1.4;
@@ -202,7 +207,7 @@ input[type=range].tier-slider:focus-visible{outline:4px solid #2B2015;outline-of
     <div class="tier-slider-wrap">
       <input type="range" class="tier-slider" id="tier-slider" min="0" max="2" step="1" value="0"
         aria-label="Difficulty tier">
-      <div class="tier-labels"><span>JC Student</span><span>Poly Student</span><span>Office Worker</span></div>
+      <div class="tier-labels"><span>Student</span><span>Poly Student</span><span>Office Worker</span></div>
     </div>
     <div class="btn-row">
       <button class="btn" id="start-btn" type="button">Start crossing</button>
@@ -242,6 +247,7 @@ input[type=range].tier-slider:focus-visible{outline:4px solid #2B2015;outline-of
   <div class="card">
     <h1>Run ended</h1>
     <p class="cause" id="over-cause"></p>
+    <p class="lesson" id="over-lesson"></p>
     <div class="stats">
       <div class="stat"><b id="over-distance">0</b><span>DISTANCE</span></div>
       <div class="stat"><b id="over-combo">0</b><span>BEST COMBO</span></div>
@@ -428,6 +434,12 @@ const CONFIG = {
   // queues read as separate vehicles instead of one clumped mass.
   CAR_FOLLOW_GAP: 1.6,
   PLAYER_HIT_PAD: 0.35,    // forgiveness either side of a car's length
+  // A small share of drivers simply do not stop for the red. This is the
+  // single most important thing the game can teach: a Green Man is permission,
+  // not protection, so ALWAYS look before stepping out. Rolled once per car
+  // per signal cycle (deterministically, from the car's own identity), so a
+  // runner is consistent for the whole approach rather than flickering.
+  CAR_RED_RUNNER_CHANCE: 0.03,
 
   // ---- Telegraphed hazard car (Jetpack-Joyride style, unavoidable) -------
   // A periodic sweep across a whole lane's width that ignores the pedestrian
@@ -460,6 +472,26 @@ const CONFIG = {
   // opened notification is answered, before the card clears on its own.
   EXPLANATION_REVEAL_MS: 3200,
 
+  // ---- Music skill check (Dead-by-Daylight style) -------------------------
+  // Earphones in is its own distraction, separate from the phone: while a
+  // track is blaring the player cannot HEAR traffic, so cars are hidden
+  // (render-only — they are still fully simulated and still lethal). A
+  // sweeping needle crosses a marked zone; tapping inside it "mutes" the
+  // music and restores hearing. Missing it means crossing deaf a while longer.
+  MUSIC_SWEEP_MS: 2400,          // needle travel, start to end of the dial
+  MUSIC_HIT_START: 0.60,         // hit zone opens here, as a fraction of the sweep
+  MUSIC_HIT_END: 0.80,           // ...and closes here
+  MUSIC_DEAF_MS: 4200,           // how long cars stay hidden after a missed check
+  MUSIC_MISS_LUNGE_ROWS: 0.6,    // leash lost on a missed check (< a wrong reply)
+
+  // ---- Coffee (Office Worker only) ---------------------------------------
+  // A full cup in one hand: hesitate mid-road and it slops over your hand,
+  // which costs you a beat you cannot afford. Purely a pressure mechanic —
+  // it never kills on its own, it just punishes dithering in the carriageway.
+  COFFEE_EVERY_MS: 11000,        // how often the cup is at risk
+  COFFEE_GRACE_MS: 1400,         // time on a road band before it spills
+  COFFEE_SPILL_LUNGE_ROWS: 0.5,  // leash lost per spill
+
   // ---- Tunnel vision cone (Project Zomboid-style directional sight) --------
   // The player only truly sees inside a cone they aim with the cursor (or by
   // dragging on touch). Outside it the board is darkened and cars, hazards and
@@ -478,12 +510,14 @@ const CONFIG = {
   // line. Generation always leaves a corridor through every band AND keeps the
   // approach to each crossing clear, so a player can be slowed and forced to
   // detour but never sealed in with the wall closing.
-  // 0.30 (nearly double the original 0.16) made pavement dense enough that a
-  // player could occasionally need to backtrack rather than always having a
-  // forward-or-sideways route — real for a human, but also what stalled the
-  // Playwright bots outright, since they only try one fallback step. Settled
-  // on a smaller, still-meaningful bump instead.
-  OBSTACLE_CHANCE: 0.22,        // per-cell chance on an eligible pavement cell
+  // Deliberately dense: the board should never be walkable in a straight
+  // line, and forcing real detours is what makes the pacing wall a threat.
+  // The reachability guarantee above (plus its BFS test) is what makes this
+  // safe to push — a player can always get through, just not lazily.
+  // Read as "chance a prop stack continues one row further up from the back
+  // of the band" (see obstaclesForBand), not a flat per-cell roll — so the
+  // realised density is lower than this number and it can be pushed hard.
+  OBSTACLE_CHANCE: 0.52,
 
   // ---- Feel --------------------------------------------------------------
   MAX_DT: 0.05,            // clamp so an alt-tab never teleports the wall
@@ -502,28 +536,40 @@ const CONFIG = {
   // traffic do. A fourth tier needs only another entry here.
   DIFFICULTY_TIERS: [
     {
-      id: 'young', name: 'JC Student', blurb: 'Sparse pings. Plays it straight.',
+      // Earphones in, nothing else. One distraction, learned in isolation:
+      // you cannot HEAR traffic, so you have to look for it.
+      id: 'student', name: 'Student', blurb: 'Music on. You will not hear them coming.',
       wallCreepSpeed: 0.42,
       trafficDensityMult: 1.0, trafficSpeedMult: 1.0, hazardCarChance: 0.08,
-      distraction: { everyMs: 14000, replyChance: 0, sender: null, fogOfWar: false, calls: false, bossEvents: false },
-      // School uniform: white shirt, navy shorts, backpack.
+      distraction: { everyMs: 0, replyChance: 0, sender: null, fogOfWar: false, calls: false, bossEvents: false },
+      music: { everyMs: 9000 },
+      coffee: false,
+      // School uniform: white shirt, navy shorts, backpack, earphones in.
       look: 'student',
       colors: { body: '#F4F1E8', trim: '#2C3E70', head: '#F2C79A', hair: '#2A1B12', accent: '#2C3E70' },
     },
     {
-      id: 'blueHair', name: 'Poly Student', blurb: 'Raeann keeps texting. Check twice.',
+      // Music AND a phone that will not shut up — two competing demands on
+      // the same attention.
+      id: 'poly', name: 'Poly Student', blurb: 'Music, plus Raeann will not stop texting.',
       wallCreepSpeed: 0.56,
       trafficDensityMult: 1.25, trafficSpeedMult: 1.12, hazardCarChance: 0.16,
       distraction: { everyMs: 8000, replyChance: 0.6, sender: 'raeann', fogOfWar: true, calls: false, bossEvents: false },
+      music: { everyMs: 11000 },
+      coffee: false,
       // Blue hair, oversized tee, earphones in.
       look: 'poly',
       colors: { body: '#2E2A38', trim: '#1E1B26', head: '#F2C79A', hair: '#4E8BD8', accent: '#E5533D' },
     },
     {
-      id: 'office', name: 'Office Worker', blurb: 'Boss, calls, no room to dawdle.',
+      // Everything at once, plus a full cup that punishes dithering in the
+      // road — the tier where hesitation itself is the hazard.
+      id: 'office', name: 'Office Worker', blurb: 'Music, the boss, and a full cup of kopi.',
       wallCreepSpeed: 0.72,
       trafficDensityMult: 1.5, trafficSpeedMult: 1.25, hazardCarChance: 0.26,
       distraction: { everyMs: 5000, replyChance: 1.0, sender: 'boss', fogOfWar: true, calls: true, bossEvents: true },
+      music: { everyMs: 13000 },
+      coffee: true,
       // Shirt and slacks, staff lanyard, coffee in hand.
       look: 'office',
       colors: { body: '#5B7FA8', trim: '#2F3A4A', head: '#E8B78E', hair: '#1E2632', accent: '#F2B33D' },
@@ -565,6 +611,7 @@ function makeRng(seed) {
 }
 
 const lerp = (a, b, t) => a + (b - a) * t;
+const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
 
 /* ---- Bands -------------------------------------------------------------- */
 // Band = { index, type, startRow, rows, zebraCol, seed, lanes:[{dir,speed,laneSeed}] }
@@ -575,8 +622,12 @@ const lerp = (a, b, t) => a + (b - a) * t;
 function buildBand(index, startRow, worldSeed) {
   const rng = makeRng(index * 104729 + worldSeed * 1000003 + 7919);
   const type = index % 2 === 0 ? 'pavement' : 'road';
+  // Pavement bands are at least two rows deep. A one-row band is ALL kerb
+  // row, and the kerb row is kept clear so the crossing is always reachable —
+  // meaning single-row bands could never carry a single prop, which is what
+  // made the pavement feel like an open field however high OBSTACLE_CHANCE went.
   const rows = type === 'pavement'
-    ? 1 + Math.floor(rng() * 2)
+    ? 2 + Math.floor(rng() * 2)
     : 1 + Math.floor(rng() * 3);
 
   const band = {
@@ -651,7 +702,14 @@ function signalCycle(elapsedMs, bandSeed) {
   const jitter = (hash01(bandSeed | 0, cycleIndex) - 0.5) * CONFIG.SIGNAL_JITTER_MS;
   // Clamped so a jittered green can never vanish or swallow the whole cycle.
   const greenMs = Math.min(cycleMs - 250, Math.max(250, CONFIG.SIGNAL_GREEN_MS + jitter));
-  return { cycleMs, greenMs, posMs: cyclePos(elapsedMs, offsetMs, cycleMs) };
+  return { cycleMs, greenMs, cycleIndex, posMs: cyclePos(elapsedMs, offsetMs, cycleMs) };
+}
+
+// Which signal cycle a moment falls in. Exported so a per-cycle decision (a
+// driver choosing to run this particular red) can be rolled once and stay
+// stable for the whole approach instead of flickering frame to frame.
+function signalCycleIndex(elapsedMs, bandSeed) {
+  return signalCycle(elapsedMs, bandSeed).cycleIndex;
 }
 
 function signalPhase(elapsedMs, bandSeed) {
@@ -693,6 +751,8 @@ function createTelemetry() {
     notificationsSeen: 0, notificationsMissed: 0,
     callsAnswered: 0, callsMissed: 0,
     bossEventsMissed: 0,
+    musicChecksHit: 0, musicChecksMissed: 0,
+    coffeeSpills: 0,
   };
 }
 
@@ -1058,6 +1118,140 @@ function isBossRowDue(row, nextBossRow, tier) {
   return !!(tier.distraction && tier.distraction.bossEvents) && row >= nextBossRow;
 }
 
+/* ---- Music skill check (earphones in) ------------------------------------
+   A distraction of a different KIND to the phone: it takes no screen time and
+   demands no reading, it simply removes your hearing. While a track is
+   playing, cars are not drawn (render-only — they are fully simulated and
+   fully lethal underneath, exactly like the vision cone). A needle sweeps a
+   dial; tapping while it is inside the marked zone mutes the music and gives
+   your ears back. Miss, and you keep crossing deaf for a while longer.
+
+   Same shape as distractionSchedule: pure, seeded, deterministic per tier
+   and world seed, so a run is reproducible and every part is unit-testable.
+   ------------------------------------------------------------------------- */
+function musicCheckSchedule(tier, worldSeed) {
+  const m = tier.music;
+  if (!m || !m.everyMs) return [];
+
+  const rng = makeRng((worldSeed | 0) * 13 + 101);
+  const events = [];
+  let t = m.everyMs * (0.5 + rng() * 0.5);      // first track isn't instant
+
+  for (let i = 0; i < 400; i++) {
+    events.push({ startMs: t, durationMs: CONFIG.MUSIC_SWEEP_MS });
+    t += m.everyMs * (0.75 + rng() * 0.5);
+  }
+  return events;
+}
+
+function activeMusicCheck(schedule, elapsedMs) {
+  for (const ev of schedule) {
+    if (elapsedMs >= ev.startMs && elapsedMs < ev.startMs + ev.durationMs) return ev;
+  }
+  return null;
+}
+
+// How far the needle has swept, 0..1. Render reads this; so does the hit test,
+// so the two can never disagree about where the needle actually is.
+function musicCheckProgress(ev, elapsedMs) {
+  if (!ev) return 0;
+  return clamp01((elapsedMs - ev.startMs) / ev.durationMs);
+}
+
+function musicCheckInHitWindow(ev, elapsedMs) {
+  const p = musicCheckProgress(ev, elapsedMs);
+  return p >= CONFIG.MUSIC_HIT_START && p <= CONFIG.MUSIC_HIT_END;
+}
+
+// Hitting the check is a good action but a small one: it costs nothing and
+// gives nothing back, because muting your own music is the baseline, not an
+// achievement. Missing it is what carries a price.
+function resolveMusicCheck(state, hit) {
+  if (hit) {
+    return {
+      ...state,
+      telemetry: {
+        ...state.telemetry,
+        musicChecksHit: state.telemetry.musicChecksHit + 1,
+      },
+    };
+  }
+  return {
+    ...state,
+    trailTarget: Math.max(CONFIG.WALL_MIN_TRAIL_ROWS,
+      state.trailTarget - CONFIG.MUSIC_MISS_LUNGE_ROWS),
+    telemetry: {
+      ...state.telemetry,
+      musicChecksMissed: state.telemetry.musicChecksMissed + 1,
+    },
+  };
+}
+
+/* ---- Coffee (Office Worker only) -----------------------------------------
+   Not a threat to your life, a threat to your tempo: linger on a road band
+   with a full cup and it slops over your hand. It exists to punish exactly
+   the behaviour that gets pedestrians hurt — stopping to dither in the middle
+   of a live carriageway instead of clearing it.
+   ------------------------------------------------------------------------- */
+// Pure predicate: main.js owns the "how long have I been on this road band"
+// clock, this decides whether that is now a spill.
+function coffeeSpillDue(tier, onRoad, dwellMs) {
+  return !!(tier.coffee && onRoad && dwellMs >= CONFIG.COFFEE_GRACE_MS);
+}
+
+function resolveCoffeeSpill(state) {
+  return {
+    ...state,
+    trailTarget: Math.max(CONFIG.WALL_MIN_TRAIL_ROWS,
+      state.trailTarget - CONFIG.COFFEE_SPILL_LUNGE_ROWS),
+    telemetry: {
+      ...state.telemetry,
+      coffeeSpills: state.telemetry.coffeeSpills + 1,
+    },
+  };
+}
+
+/* ---- Death causes --------------------------------------------------------
+   Every death names what actually killed you and what to do instead. A run
+   that ends without teaching anything is a wasted run — this is the whole
+   point of the game, so the copy lives in rules.js beside the mechanics that
+   trigger it rather than being buried in a render call.
+
+   `warning` is the short in-run telegraph; `lesson` is the real-world habit
+   the game-over screen leaves you with.
+   ------------------------------------------------------------------------- */
+const DEATH_CAUSES = {
+  wall: {
+    title: 'You ran out of time.',
+    warning: 'Keep moving — hesitating on the road is what gets you caught.',
+    lesson: 'Decide at the kerb, not in the road. Wait as long as you need on the '
+      + 'pavement, then cross with purpose — the danger is dithering once you have stepped out.',
+  },
+  car: {
+    title: 'You stepped into traffic.',
+    warning: 'A car had right of way.',
+    lesson: 'Look right, look left, look right again — and only step out when traffic '
+      + 'has actually stopped. Crossing anywhere other than a proper crossing removes '
+      + 'every protection the road gives you.',
+  },
+  redRunner: {
+    title: 'A car ran the red light.',
+    warning: 'That driver never braked.',
+    lesson: 'A Green Man is permission, not protection. Some drivers do not stop — so '
+      + 'check that vehicles have actually halted before you step out, every single time.',
+  },
+  hazard: {
+    title: 'A speeding car caught you.',
+    warning: 'You were warned that lane was about to be swept.',
+    lesson: 'If a vehicle is coming too fast to stop, nothing about being in the right '
+      + 'protects you. Never be on the carriageway when you can see one coming — wait it out.',
+  },
+};
+
+function deathCause(reason) {
+  return DEATH_CAUSES[reason] || DEATH_CAUSES.car;
+}
+
 /* ---- Obstacles (trees and roadside props) -------------------------------
    Solid props on pavement rows, so the board cannot be walked in a straight
    line. Two invariants make this safe to combine with a wall that paces you:
@@ -1084,15 +1278,12 @@ const OBSTACLE_KINDS = ['tree', 'planter', 'bollard', 'binCorner'];
 // the kerb row above is always clear: step up, then slide to the crossing.
 // That gives mid-board obstacles (rule 2) without ever trapping anyone.
 // A test proves it by breadth-first search rather than trusting this comment.
-// signalColAhead is the column of the kerbside signal post standing on this
-// band's own kerb row (see signalColFor) — it is now a solid obstacle like
-// any other prop, so it must never be left mid-corridor by the span below.
 // zebraColBehind is the crossing the player may just have ARRIVED from (the
 // road immediately before this band). The clear span must reach it too, not
 // just zebraColAhead — otherwise a narrow span can strand a player on the
 // very cell they land on, since that cell is outside [lo,hi] on every row,
 // kerb row included, and blockedAt would refuse the step that put them there.
-function obstaclesForBand(band, zebraColAhead, rng, spawnCol, signalColAhead, zebraColBehind) {
+function obstaclesForBand(band, zebraColAhead, rng, spawnCol, zebraColBehind) {
   // Roads stay clear: props there would block the traffic simulation, and a
   // pedestrian standing behind a bollard mid-carriageway teaches nothing.
   if (band.type !== 'pavement') return [];
@@ -1113,13 +1304,6 @@ function obstaclesForBand(band, zebraColAhead, rng, spawnCol, signalColAhead, ze
   let hi = rng() < 0.5
     ? CONFIG.GRID_COLS - 1
     : Math.max(mustHi, CONFIG.GRID_COLS - 2 - Math.floor(rng() * 2));
-  // Keep the signal post's column permanently outside the span so it can
-  // never carve a hole mid-corridor: it becomes a hard edge, exactly like
-  // the crossing itself, instead of an obstacle the proof below can't see.
-  if (signalColAhead !== null && signalColAhead !== undefined) {
-    if (signalColAhead < mustLo) lo = Math.max(lo, signalColAhead + 1);
-    else if (signalColAhead > mustHi) hi = Math.min(hi, signalColAhead - 1);
-  }
   if (spawnCol !== undefined && band.startRow === 0) {
     lo = Math.min(lo, spawnCol);
     hi = Math.max(hi, spawnCol);
@@ -1127,18 +1311,28 @@ function obstaclesForBand(band, zebraColAhead, rng, spawnCol, signalColAhead, ze
 
   const kerbRow = band.startRow + band.rows - 1;
   const out = [];
-  for (let i = 0; i < band.rows; i++) {
-    const row = band.startRow + i;
-    for (let col = 0; col < CONFIG.GRID_COLS; col++) {
-      if (inZebra(col)) continue;                    // crossing approach always clear
-      // The signal post's own cell is solid via the signal sprite itself
-      // (see blockedAt in main.js) — never double it up with a tree/bollard.
-      if (row === kerbRow && col === signalColAhead) continue;
-      const outsideSpan = col < lo || col > hi;
-      const blocked = outsideSpan
-        || (row !== kerbRow && rng() < CONFIG.OBSTACLE_CHANCE);
-      if (!blocked) continue;
-      out.push({ row, col, kind: OBSTACLE_KINDS[Math.floor(rng() * OBSTACLE_KINDS.length)] });
+  const put = (row, col) => out.push({
+    row, col, kind: OBSTACLE_KINDS[Math.floor(rng() * OBSTACLE_KINDS.length)],
+  });
+
+  for (let col = 0; col < CONFIG.GRID_COLS; col++) {
+    if (inZebra(col)) continue;                      // crossing approach always clear
+
+    if (col < lo || col > hi) {                      // outside the span: solid wall
+      for (let i = 0; i < band.rows; i++) put(band.startRow + i, col);
+      continue;
+    }
+
+    // Inside the span, props stack UPWARD FROM THE BACK of the band and stop
+    // at the first gap, so every column is "blocked below, clear above". That
+    // is what keeps the band provably escapable at any depth: from any cell
+    // you can stand on, the whole column above you is clear, so you can always
+    // walk straight up to the kerb row and slide along it to the crossing.
+    // (The older rule blocked cells anywhere on a non-kerb row, which was only
+    // safe while pavement bands were a single row deep.)
+    for (let i = 0; i < band.rows - 1; i++) {        // kerb row is never blocked
+      if (rng() >= CONFIG.OBSTACLE_CHANCE) break;
+      put(band.startRow + i, col);
     }
   }
   return out;
@@ -1183,10 +1377,22 @@ function isInCrossingZone(car, band) {
   return hi > band.zebraCol && lo < band.zebraCol + CONFIG.ZEBRA_WIDTH;
 }
 
+// Does this particular driver run this particular red? Rolled once per car
+// per signal cycle, deterministically, so a runner stays a runner for its
+// whole approach rather than flickering. This is the game's single most
+// important lesson made mechanical: a Green Man is permission, not
+// protection. Look anyway.
+function carRunsRedLight(car, band, elapsedMs) {
+  if (band.type !== 'road') return false;
+  const cycle = signalCycleIndex(elapsedMs, band.seed);
+  return hash01((car.id | 0) ^ 0x5bf03635, cycle) < CONFIG.CAR_RED_RUNNER_CHANCE;
+}
+
 function carTargetSpeed(car, band, elapsedMs) {
   if (band.type !== 'road') return car.speed;
   if (isInCrossingZone(car, band)) return car.speed;
   if (!signalStopsTraffic(elapsedMs, band.seed)) return car.speed;
+  if (carRunsRedLight(car, band, elapsedMs)) return car.speed;   // this one is not stopping
 
   const dist = (stopLineFor(car, band) - car.x) * car.dir;
   if (dist <= 0) return car.speed;      // already in the crossing, drive on and clear
@@ -1298,6 +1504,9 @@ function spawnCarsForBand(band, rng, tier = NEUTRAL_TRAFFIC) {
       const hi = band.zebraCol + CONFIG.ZEBRA_WIDTH - 1 + pad;
       if (x > lo && x < hi) x = hi + 0.25;
       cars.push({
+        // Stable per-car identity, so a decision like "does this driver run
+        // the red?" can be rolled deterministically instead of stored.
+        id: (band.seed * 31 + i * 7 + q) | 0,
         row: band.startRow + i,
         x,
         dir: lane.dir,
@@ -1619,93 +1828,125 @@ function drawCar(ctx, car, x, y, tile) {
 // hood over a domed glass lens, a lit filament behind the figure, and a
 // countdown bar. Drawn flat on the pavement tile, so the player can walk
 // over it -- nothing here blocks movement.
+// A Singapore pedestrian signal: two stacked aspects, red standing man above
+// the green walking man, only one lit at a time. Drawn large and high-contrast
+// because reading it at a glance IS the game — an ambiguous signal is an
+// unfair death.
 function drawSignal(ctx, band, x, y, tile, elapsedMs) {
   const phase = signalPhase(elapsedMs, band.seed);
-  const on = phase === 'green' ? PALETTE.signalGreen : PALETTE.signalRed;
-  const w = tile * 0.66;
-  const h = tile * 0.84;
+  const green = phase === 'green';
+
+  const w = tile * 0.78;
+  const h = tile * 1.18;
   const px = x - w / 2;
-  const py = y - h / 2;
-  const r = tile * 0.15;
+  const py = y - h * 0.56;
+  const r = tile * 0.12;
 
-  contactShadow(ctx, x, y + h * 0.52, w * 0.62, tile * 0.15, 0.32);
+  contactShadow(ctx, x, y + tile * 0.4, w * 0.6, tile * 0.13, 0.34);
 
-  // post plate under the housing
-  fillRoundRect(ctx, x - w * 0.16, py + h * 0.72, w * 0.32, h * 0.3, tile * 0.05, '#5A5148');
-  fillRoundRect(ctx, x - w * 0.22, py + h * 0.94, w * 0.44, h * 0.12, tile * 0.05, '#6E6459');
+  // pole
+  fillRoundRect(ctx, x - w * 0.09, py + h * 0.9, w * 0.18, tile * 0.34, w * 0.05, '#4E463C');
+  fillRoundRect(ctx, x - w * 0.2, py + h * 0.9 + tile * 0.3, w * 0.4, tile * 0.08, w * 0.04, '#5E5648');
 
-  // housing: dark moulded body with a lighter bevel
-  depthRect(ctx, px, py, w, h * 0.8, r, '#2B2015', Math.max(3, tile * 0.09));
-  fillRoundRect(ctx, px + w * 0.06, py + h * 0.04, w * 0.88, h * 0.72, r * 0.85,
-    vGradient(ctx, py, py + h * 0.76, '#4A3823', '#231A11'));
+  // housing
+  depthRect(ctx, px, py, w, h * 0.92, r, '#1C1610', Math.max(3, tile * 0.08));
+  fillRoundRect(ctx, px + w * 0.05, py + h * 0.03, w * 0.9, h * 0.86, r * 0.9,
+    vGradient(ctx, py, py + h * 0.9, '#3C3226', '#1A140E'));
 
-  // recessed hood
-  fillRoundRect(ctx, px + w * 0.08, py + h * 0.02, w * 0.84, h * 0.12, r * 0.5,
-    'rgba(0,0,0,0.45)');
+  // the two lenses
+  const lensR = w * 0.29;
+  const cxL = x;
+  const redCy = py + h * 0.27;
+  const greenCy = py + h * 0.64;
 
-  // lens: dark well, glow halo, then the domed glass
-  const lx = px + w * 0.16;
-  const ly = py + h * 0.14;
-  const lw = w * 0.68;
-  const lh = h * 0.5;
-  fillRoundRect(ctx, lx - 1, ly - 1, lw + 2, lh + 2, r * 0.7, '#12100C');
+  const drawLens = (cy, lit, litColor) => {
+    fillCircle(ctx, cxL, cy, lensR * 1.12, '#0D0B08');           // well
+    if (lit) {
+      const halo = ctx.createRadialGradient(cxL, cy, 1, cxL, cy, lensR * 1.9);
+      halo.addColorStop(0, litColor);
+      halo.addColorStop(0.4, litColor);
+      halo.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.save();
+      ctx.globalAlpha = 0.55;
+      fillCircle(ctx, cxL, cy, lensR * 1.9, halo);
+      ctx.restore();
+    }
+    fillCircle(ctx, cxL, cy, lensR, lit ? litColor : darken(litColor, 0.78));
+  };
 
-  const halo = ctx.createRadialGradient(x, ly + lh / 2, 1, x, ly + lh / 2, lw * 0.9);
-  halo.addColorStop(0, on);
-  halo.addColorStop(0.55, darken(on, 0.35));
-  halo.addColorStop(1, darken(on, 0.72));
-  fillRoundRect(ctx, lx, ly, lw, lh, r * 0.65, halo);
+  drawLens(redCy, !green, PALETTE.signalRed);
+  drawLens(greenCy, green, PALETTE.signalGreen);
 
-  // pedestrian figure
-  const FIGURE = 'rgba(12,10,7,0.88)';
-  const fx = x;
-  const fy = ly + lh * 0.52;
-  fillCircle(ctx, fx, fy - lh * 0.26, lw * 0.13, FIGURE);
-  if (phase === 'green') {
-    ctx.lineWidth = Math.max(1.6, lw * 0.13);
-    ctx.strokeStyle = FIGURE;
+  // ---- the figures, drawn as solid silhouettes on the lit lens ------------
+  const FIG = 'rgba(10,9,6,0.9)';
+  const dim = 'rgba(10,9,6,0.30)';
+
+  // RED: a man standing still, feet together, arms at his sides.
+  (() => {
+    const on = !green;
+    const col = on ? FIG : dim;
+    const s2 = lensR * 0.9;
+    const cy = redCy;
+    fillCircle(ctx, cxL, cy - s2 * 0.52, s2 * 0.24, col);          // head
+    fillRoundRect(ctx, cxL - s2 * 0.17, cy - s2 * 0.24, s2 * 0.34, s2 * 0.5, s2 * 0.1, col);  // torso
+    ctx.strokeStyle = col;
+    ctx.lineWidth = Math.max(1.6, s2 * 0.15);
     ctx.lineCap = 'round';
-    ctx.beginPath();                                   // striding legs
-    ctx.moveTo(fx - lw * 0.16, fy + lh * 0.3);
-    ctx.lineTo(fx + lw * 0.02, fy);
-    ctx.lineTo(fx + lw * 0.18, fy + lh * 0.3);
+    ctx.beginPath();
+    ctx.moveTo(cxL - s2 * 0.26, cy - s2 * 0.16);                   // arms straight down
+    ctx.lineTo(cxL - s2 * 0.28, cy + s2 * 0.2);
+    ctx.moveTo(cxL + s2 * 0.26, cy - s2 * 0.16);
+    ctx.lineTo(cxL + s2 * 0.28, cy + s2 * 0.2);
+    ctx.moveTo(cxL - s2 * 0.1, cy + s2 * 0.26);                    // legs together
+    ctx.lineTo(cxL - s2 * 0.1, cy + s2 * 0.62);
+    ctx.moveTo(cxL + s2 * 0.1, cy + s2 * 0.26);
+    ctx.lineTo(cxL + s2 * 0.1, cy + s2 * 0.62);
     ctx.stroke();
-    ctx.beginPath();                                   // swinging arm
-    ctx.moveTo(fx - lw * 0.14, fy - lh * 0.02);
-    ctx.lineTo(fx + lw * 0.14, fy - lh * 0.1);
-    ctx.stroke();
-  } else {
-    fillRoundRect(ctx, fx - lw * 0.10, fy - lh * 0.14, lw * 0.20, lh * 0.34, lw * 0.07, FIGURE);
-    ctx.lineWidth = Math.max(1.4, lw * 0.1);
-    ctx.strokeStyle = FIGURE;
-    ctx.lineCap = 'round';
-    ctx.beginPath();                                   // arms down, standing
-    ctx.moveTo(fx - lw * 0.17, fy + lh * 0.04);
-    ctx.lineTo(fx - lw * 0.10, fy + lh * 0.2);
-    ctx.moveTo(fx + lw * 0.17, fy + lh * 0.04);
-    ctx.lineTo(fx + lw * 0.10, fy + lh * 0.2);
-    ctx.stroke();
-  }
+  })();
 
-  // curved glass highlight across the top of the lens
+  // GREEN: a man mid-stride, legs scissored, arms swinging.
+  (() => {
+    const col = green ? FIG : dim;
+    const s2 = lensR * 0.9;
+    const cy = greenCy;
+    fillCircle(ctx, cxL - s2 * 0.06, cy - s2 * 0.54, s2 * 0.24, col);   // head
+    ctx.save();
+    ctx.translate(cxL, cy);
+    ctx.rotate(-0.12);                                                  // slight forward lean
+    fillRoundRect(ctx, -s2 * 0.17, -s2 * 0.26, s2 * 0.34, s2 * 0.5, s2 * 0.1, col);
+    ctx.restore();
+    ctx.strokeStyle = col;
+    ctx.lineWidth = Math.max(1.6, s2 * 0.15);
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(cxL - s2 * 0.14, cy - s2 * 0.14);                        // rear arm swung back
+    ctx.lineTo(cxL - s2 * 0.42, cy + s2 * 0.06);
+    ctx.moveTo(cxL + s2 * 0.14, cy - s2 * 0.16);                        // lead arm forward
+    ctx.lineTo(cxL + s2 * 0.4, cy - s2 * 0.34);
+    ctx.moveTo(cxL - s2 * 0.04, cy + s2 * 0.24);                        // trailing leg
+    ctx.lineTo(cxL - s2 * 0.34, cy + s2 * 0.62);
+    ctx.moveTo(cxL + s2 * 0.02, cy + s2 * 0.24);                        // leading leg
+    ctx.lineTo(cxL + s2 * 0.3, cy + s2 * 0.62);
+    ctx.stroke();
+  })();
+
+  // glass highlight over both lenses
   ctx.save();
-  roundRectPath(ctx, lx, ly, lw, lh, r * 0.65);
+  roundRectPath(ctx, px + w * 0.05, py + h * 0.03, w * 0.9, h * 0.86, r * 0.9);
   ctx.clip();
-  ctx.fillStyle = vGradient(ctx, ly, ly + lh * 0.5,
-    'rgba(255,255,255,0.34)', 'rgba(255,255,255,0)');
-  ctx.fillRect(lx, ly, lw, lh * 0.5);
+  ctx.fillStyle = vGradient(ctx, py, py + h * 0.45,
+    'rgba(255,255,255,0.20)', 'rgba(255,255,255,0)');
+  ctx.fillRect(px, py, w, h * 0.45);
   ctx.restore();
 
   // countdown bar draining through the current phase
   const p = signalPhaseProgress(elapsedMs, band.seed);
-  const barX = px + w * 0.16;
-  const barY = py + h * 0.68;
-  const barW = w * 0.68;
-  fillRoundRect(ctx, barX, barY, barW, tile * 0.055, tile * 0.03, 'rgba(0,0,0,0.55)');
+  const barX = px + w * 0.14;
+  const barW = w * 0.72;
+  const barY = py + h * 0.82;
+  fillRoundRect(ctx, barX, barY, barW, tile * 0.055, tile * 0.03, 'rgba(0,0,0,0.6)');
   fillRoundRect(ctx, barX, barY, barW * (1 - p), tile * 0.055, tile * 0.03,
-    phase === 'green' ? PALETTE.signalGreen : PALETTE.signalRed);
-
-  gloss(ctx, px, py, w, h * 0.4, r, 0.24);
+    green ? PALETTE.signalGreen : PALETTE.signalRed);
 }
 
 // Three Singapore archetypes, told apart by silhouette and props rather than
@@ -1713,71 +1954,143 @@ function drawSignal(ctx, band, x, y, tile, elapsedMs) {
 // earphones), office worker (lanyard + coffee).
 function drawPlayer(ctx, tier, x, y, tile, lift) {
   const c = tier.colors;
-  const w = tile * 0.6;
-  const h = tile * 0.62;
-  const py = y - h / 2 - lift;
+  const w = tile * 0.56;              // shoulder width
+  const h = tile * 0.47;              // torso height
+  const py = y - h / 2 - lift - tile * 0.06;
+  const skinLo = darken(c.head, 0.22);
 
-  contactShadow(ctx, x, y + tile * 0.24, w * 0.62, tile * 0.15, 0.3 - lift * 0.004);
+  contactShadow(ctx, x, y + tile * 0.26, w * 0.66, tile * 0.14, 0.3 - lift * 0.004);
 
-  // backpack sits behind the body for the student
-  if (tier.look === 'student') {
-    fillRoundRect(ctx, x - w * 0.34, py + h * 0.16, w * 0.68, h * 0.6, tile * 0.14, '#2C3E70');
+  // ---- legs, planted slightly apart so the figure reads as standing -------
+  const legY = py + h * 0.86;
+  const legH = tile * 0.2;
+  const legW = w * 0.22;
+  for (const sx of [-1, 1]) {
+    fillRoundRect(ctx, x + sx * w * 0.2 - legW / 2, legY, legW, legH, legW * 0.42, c.trim);
+    // shoe
+    fillRoundRect(ctx, x + sx * w * 0.2 - legW * 0.62, legY + legH - tile * 0.045,
+      legW * 1.24, tile * 0.06, tile * 0.03, '#2A2118');
   }
 
-  depthRect(ctx, x - w / 2, py, w, h, tile * 0.2, c.body, Math.max(3, tile * 0.1));
-  fillRoundRect(ctx, x - w / 2 + w * 0.14, py + h * 0.52, w * 0.72, h * 0.34, tile * 0.1, c.trim);
+  // ---- backpack behind the student ---------------------------------------
+  if (tier.look === 'student') {
+    fillRoundRect(ctx, x - w * 0.46, py + h * 0.1, w * 0.92, h * 0.78, tile * 0.1, '#24325C');
+    fillRoundRect(ctx, x - w * 0.3, py + h * 0.24, w * 0.6, h * 0.24, tile * 0.05, '#1A2647');
+  }
+
+  // ---- torso: tapered shoulders, not a plain box -------------------------
+  const torsoTop = py + h * 0.16;
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(x - w * 0.44, torsoTop + h * 0.14);
+  ctx.quadraticCurveTo(x - w * 0.5, torsoTop, x - w * 0.3, torsoTop - h * 0.02);
+  ctx.lineTo(x + w * 0.3, torsoTop - h * 0.02);
+  ctx.quadraticCurveTo(x + w * 0.5, torsoTop, x + w * 0.44, torsoTop + h * 0.14);
+  ctx.lineTo(x + w * 0.4, py + h * 0.9);
+  ctx.lineTo(x - w * 0.4, py + h * 0.9);
+  ctx.closePath();
+  ctx.fillStyle = vGradient(ctx, torsoTop, py + h * 0.9, c.body, darken(c.body, 0.22));
+  ctx.fill();
+  ctx.restore();
+
+  // ---- arms, one either side ---------------------------------------------
+  const armW = w * 0.17;
+  const armTop = torsoTop + h * 0.14;
+  const armH = h * 0.6;
+  for (const sx of [-1, 1]) {
+    fillRoundRect(ctx, x + sx * w * 0.45 - armW / 2, armTop, armW, armH, armW * 0.5,
+      darken(c.body, 0.16));
+    fillCircle(ctx, x + sx * w * 0.45, armTop + armH, armW * 0.46, c.head);   // hand
+  }
+
+  // ---- per-tier props -----------------------------------------------------
+  if (tier.look === 'student') {
+    // uniform collar + shoulder straps
+    ctx.strokeStyle = '#24325C';
+    ctx.lineWidth = Math.max(1.4, w * 0.07);
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(x - w * 0.26, torsoTop + h * 0.02);
+    ctx.lineTo(x - w * 0.2, py + h * 0.86);
+    ctx.moveTo(x + w * 0.26, torsoTop + h * 0.02);
+    ctx.lineTo(x + w * 0.2, py + h * 0.86);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(x - w * 0.16, torsoTop + h * 0.01);
+    ctx.lineTo(x, torsoTop + h * 0.22);
+    ctx.lineTo(x + w * 0.16, torsoTop + h * 0.01);
+    ctx.stroke();
+  }
+
+  if (tier.look === 'poly') {
+    // phone held up in one hand — the tier's whole problem, made visible
+    fillRoundRect(ctx, x + w * 0.34, armTop + armH * 0.52, w * 0.26, h * 0.34, tile * 0.035, '#16202B');
+    fillRoundRect(ctx, x + w * 0.37, armTop + armH * 0.56, w * 0.2, h * 0.26, tile * 0.02, '#7FC4E8');
+  }
 
   if (tier.look === 'office') {
-    // lanyard: two straps to a badge on the chest
+    // lanyard + staff pass
     ctx.strokeStyle = '#1E4C7A';
     ctx.lineWidth = Math.max(1.2, w * 0.06);
     ctx.beginPath();
-    ctx.moveTo(x - w * 0.16, py + h * 0.18);
-    ctx.lineTo(x, py + h * 0.46);
-    ctx.moveTo(x + w * 0.16, py + h * 0.18);
-    ctx.lineTo(x, py + h * 0.46);
+    ctx.moveTo(x - w * 0.18, torsoTop + h * 0.02);
+    ctx.lineTo(x, torsoTop + h * 0.34);
+    ctx.moveTo(x + w * 0.18, torsoTop + h * 0.02);
+    ctx.lineTo(x, torsoTop + h * 0.34);
     ctx.stroke();
-    fillRoundRect(ctx, x - w * 0.09, py + h * 0.44, w * 0.18, h * 0.18, tile * 0.03, '#F4F1E8');
-    // coffee cup in hand
-    fillRoundRect(ctx, x + w * 0.34, py + h * 0.34, w * 0.17, h * 0.26, tile * 0.03, '#F4F1E8');
-    fillRoundRect(ctx, x + w * 0.33, py + h * 0.32, w * 0.19, h * 0.07, tile * 0.02, '#B8532F');
+    fillRoundRect(ctx, x - w * 0.11, torsoTop + h * 0.32, w * 0.22, h * 0.22, tile * 0.025, '#F4F1E8');
+    // the famous cup of kopi, in the off hand
+    const cupX = x + w * 0.45;
+    const cupY = armTop + armH * 0.5;
+    fillRoundRect(ctx, cupX - w * 0.11, cupY, w * 0.22, h * 0.32, tile * 0.03, '#F4F1E8');
+    fillRoundRect(ctx, cupX - w * 0.13, cupY - tile * 0.03, w * 0.26, tile * 0.05, tile * 0.02, '#B8532F');
+    fillRoundRect(ctx, cupX - w * 0.08, cupY + h * 0.1, w * 0.16, h * 0.08, tile * 0.015, '#6F4A2E');
   }
 
-  if (tier.look === 'student') {
-    // uniform collar
-    ctx.strokeStyle = '#2C3E70';
-    ctx.lineWidth = Math.max(1.2, w * 0.055);
-    ctx.beginPath();
-    ctx.moveTo(x - w * 0.14, py + h * 0.14);
-    ctx.lineTo(x, py + h * 0.3);
-    ctx.lineTo(x + w * 0.14, py + h * 0.14);
-    ctx.stroke();
-  }
+  // ---- neck + head --------------------------------------------------------
+  const headR = w * 0.31;
+  const headCy = torsoTop - headR * 0.72;
+  fillRoundRect(ctx, x - w * 0.09, headCy + headR * 0.5, w * 0.18, headR * 0.6, w * 0.05, skinLo);
+  fillCircle(ctx, x, headCy + 1.5, headR, skinLo);
+  fillCircle(ctx, x, headCy, headR, c.head);
 
-  // head, over an offset darker copy that reads as its underside
-  const headCx = x;
-  const headCy = py + h * 0.3;
-  const headR = w * 0.3;
-  fillCircle(ctx, headCx, headCy + 2, headR, darken(c.head, 0.3));
-  fillCircle(ctx, headCx, headCy, headR, c.head);
+  // ears
+  fillCircle(ctx, x - headR * 0.96, headCy + headR * 0.08, headR * 0.2, skinLo);
+  fillCircle(ctx, x + headR * 0.96, headCy + headR * 0.08, headR * 0.2, skinLo);
 
-  // hair cap, clipped to the top of the head circle
+  // hair, clipped to the skull
   ctx.save();
-  circlePath(ctx, headCx, headCy, headR);
+  circlePath(ctx, x, headCy, headR);
   ctx.clip();
   ctx.fillStyle = c.hair;
-  ctx.fillRect(headCx - headR * 1.05, headCy - headR * 1.05, headR * 2.1,
-    tier.look === 'poly' ? headR * 1.15 : headR * 0.95);
+  const hairDrop = tier.look === 'poly' ? headR * 1.2 : headR * 0.86;
+  ctx.fillRect(x - headR * 1.1, headCy - headR * 1.1, headR * 2.2, hairDrop);
+  if (tier.look === 'office') {                      // side part
+    ctx.fillStyle = darken(c.hair, 0.25);
+    ctx.fillRect(x + headR * 0.2, headCy - headR * 1.1, headR * 0.3, hairDrop);
+  }
   ctx.restore();
 
-  if (tier.look === 'poly') {
-    // earphone buds either side of the head
-    fillCircle(ctx, headCx - headR * 0.95, headCy + headR * 0.1, headR * 0.24, '#F4F1E8');
-    fillCircle(ctx, headCx + headR * 0.95, headCy + headR * 0.1, headR * 0.24, '#F4F1E8');
-  }
+  // eyes — small, dark, and always facing up the board
+  const eyeR = Math.max(1.1, headR * 0.13);
+  fillCircle(ctx, x - headR * 0.34, headCy + headR * 0.1, eyeR, '#241A12');
+  fillCircle(ctx, x + headR * 0.34, headCy + headR * 0.1, eyeR, '#241A12');
 
-  fillRoundRect(ctx, x - w * 0.1, py - h * 0.02, w * 0.2, h * 0.16, tile * 0.05, c.accent);
-  gloss(ctx, x - w / 2, py, w, h, tile * 0.2, 0.32);
+  // ---- earphones: the shared thread through every tier --------------------
+  const budR = headR * 0.26;
+  fillCircle(ctx, x - headR * 1.0, headCy + headR * 0.06, budR, '#F7F4EA');
+  fillCircle(ctx, x + headR * 1.0, headCy + headR * 0.06, budR, '#F7F4EA');
+  fillCircle(ctx, x - headR * 1.0, headCy + headR * 0.06, budR * 0.42, '#8FA3B0');
+  fillCircle(ctx, x + headR * 1.0, headCy + headR * 0.06, budR * 0.42, '#8FA3B0');
+  ctx.strokeStyle = '#E4E0D4';                        // cable trailing to a pocket
+  ctx.lineWidth = Math.max(1, headR * 0.11);
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(x + headR * 1.0, headCy + headR * 0.3);
+  ctx.quadraticCurveTo(x + w * 0.5, torsoTop + h * 0.3, x + w * 0.22, torsoTop + h * 0.5);
+  ctx.stroke();
+
+  gloss(ctx, x - w * 0.44, torsoTop, w * 0.88, h * 0.7, tile * 0.1, 0.22);
 }
 
 /* ---- Singapore streetscape props ---------------------------------------- */
@@ -2202,10 +2515,11 @@ function drawFrame(ctx, view) {
 
   drawBands(ctx, bands, board);
 
-  // Cars are only DRAWN inside the cone (truly clipped, see drawCarsInCone).
-  // They are always fully simulated regardless — being unable to see one has
-  // never made it safe, which is the whole point of the mechanic.
-  drawCarsInCone(ctx, layout, board, cars, view);
+  // Cars are only DRAWN inside the cone (truly clipped, see drawCarsInCone),
+  // and not at all while music is deafening the player. They are always fully
+  // simulated regardless — being unable to see or hear one has never made it
+  // safe, which is the whole point of both mechanics.
+  if (!view.musicDeaf) drawCarsInCone(ctx, layout, board, cars, view);
 
   // Props are always drawn, cone or not. Hiding STATIC scenery just makes the
   // player walk into invisible trees, which is irritating rather than
@@ -2270,35 +2584,54 @@ function drawFrame(ctx, view) {
 // while the player is still out on the road (checking now would be exactly
 // the mistake the game is trying to teach against); it pulses once they are
 // safely back on the pavement, signalling it is now fine to tap and read it.
+// The unread-message badge. Deliberately the largest thing in the HUD after
+// the score: it is the one control the player has to notice mid-run, and it
+// was previously too small to read at a glance.
 function drawPendingBadge(ctx, cx, cy, r, count, safe, elapsedMs) {
-  const pulse = safe ? 0.5 + 0.5 * Math.sin(elapsedMs / 220) : 0;
-  contactShadow(ctx, cx, cy + r + 2, r, 5, 0.3);
-  ctx.save();
-  ctx.globalAlpha = safe ? 0.55 + pulse * 0.45 : 0.55;
-  fillCircle(ctx, cx, cy, r, safe ? PALETTE.signalGreen : 'rgba(140,168,184,0.9)');
-  ctx.restore();
-  fillCircle(ctx, cx, cy, r - 3,
+  const pulse = safe ? 0.5 + 0.5 * Math.sin(elapsedMs / 260) : 0;
+
+  contactShadow(ctx, cx, cy + r + 3, r * 0.9, 6, 0.32);
+
+  // A green ring while it is safe to check, so "you may look now" is a
+  // property of the badge itself rather than a separate thing to notice.
+  if (safe) {
+    ctx.save();
+    ctx.globalAlpha = 0.35 + pulse * 0.5;
+    fillCircle(ctx, cx, cy, r + 5 + pulse * 3, PALETTE.signalGreen);
+    ctx.restore();
+  }
+
+  fillCircle(ctx, cx, cy, r, safe ? PALETTE.signalGreen : 'rgba(150,172,186,0.95)');
+  fillCircle(ctx, cx, cy, r - 3.5,
     vGradient(ctx, cy - r, cy + r, PALETTE.badgeTop, PALETTE.badgeBot));
 
+  // envelope, scaled off the badge so it grows with it
+  const ew = r * 0.86;
+  const eh = r * 0.6;
   ctx.strokeStyle = PALETTE.badgeText;
-  ctx.lineWidth = Math.max(1.5, r * 0.09);
-  ctx.strokeRect(cx - r * 0.36, cy - r * 0.24, r * 0.72, r * 0.48);
+  ctx.lineWidth = Math.max(2, r * 0.11);
+  ctx.lineJoin = 'round';
+  ctx.strokeRect(cx - ew / 2, cy - eh / 2, ew, eh);
   ctx.beginPath();
-  ctx.moveTo(cx - r * 0.36, cy - r * 0.24);
-  ctx.lineTo(cx, cy + r * 0.06);
-  ctx.lineTo(cx + r * 0.36, cy - r * 0.24);
+  ctx.moveTo(cx - ew / 2, cy - eh / 2);
+  ctx.lineTo(cx, cy + eh * 0.22);
+  ctx.lineTo(cx + ew / 2, cy - eh / 2);
   ctx.stroke();
 
-  const bubbleR = Math.max(9, r * 0.34);
-  fillCircle(ctx, cx + r * 0.62, cy - r * 0.62, bubbleR, PALETTE.signalRed);
-  chunkyText(ctx, String(count), cx + r * 0.62, cy - r * 0.62, bubbleR * 1.1, '#FAF7EC');
+  // unread count
+  const bubbleR = Math.max(11, r * 0.42);
+  const bx = cx + r * 0.72;
+  const by = cy - r * 0.72;
+  fillCircle(ctx, bx, by, bubbleR + 2.5, PALETTE.badgeTop);
+  fillCircle(ctx, bx, by, bubbleR, PALETTE.signalRed);
+  chunkyText(ctx, String(count), bx, by, bubbleR * 1.25, '#FFF8F0');
 }
 
 function drawHud(ctx, view, layout) {
   const { state, viewW, viewH } = view;
-  const h = Math.max(38, Math.min(54, layout.w * 0.115));
-  const y = Math.max(10, layout.y - h - 14);
-  const pillW = Math.min(132, layout.w * 0.3);
+  const h = Math.max(40, Math.min(56, layout.w * 0.115));
+  const y = Math.max(8, layout.y - h - 12);
+  const pillW = Math.min(132, layout.w * 0.28);
   const pauseR = h / 2;
 
   pill(ctx, layout.x, y, pillW, h, 'DISTANCE', String(view.distance));
@@ -2308,10 +2641,24 @@ function drawHud(ctx, view, layout) {
   let badgeHit = null;
   const pendingCount = view.pendingCount || 0;
   if (pendingCount > 0) {
-    const badgeR = pauseR * 0.86;
-    const bx = layout.x + layout.w - pauseR * 2 - 16 - badgeR;
-    drawPendingBadge(ctx, bx, y + h / 2, badgeR, pendingCount, !!view.pendingSafe, view.elapsedMs);
-    badgeHit = { x: bx - badgeR, y: y + h / 2 - badgeR, w: badgeR * 2, h: badgeR * 2 };
+    // Bigger than the pause button on purpose — this is the one thing the
+    // player must not miss, and at the old size it read as decoration.
+    const badgeR = pauseR * 1.12;
+    const bx = layout.x + layout.w - pauseR * 2 - 22 - badgeR;
+    const by = y + h / 2;
+    drawPendingBadge(ctx, bx, by, badgeR, pendingCount, !!view.pendingSafe, view.elapsedMs);
+    badgeHit = { x: bx - badgeR, y: by - badgeR, w: badgeR * 2, h: badgeR * 2 };
+
+    // Spell out the rule the badge is enforcing, so a first-time player is
+    // never left guessing why tapping it did nothing mid-road.
+    const label = view.pendingSafe ? 'TAP TO READ' : 'CROSS FIRST';
+    const lw = Math.max(88, layout.w * 0.13);
+    const lh = Math.max(18, h * 0.34);
+    const lx = bx - lw / 2;
+    const ly = by + badgeR + 7;
+    fillRoundRect(ctx, lx, ly, lw, lh, lh / 2,
+      view.pendingSafe ? 'rgba(58,142,84,0.92)' : 'rgba(40,34,26,0.82)');
+    chunkyText(ctx, label, bx, ly + lh / 2, Math.max(9.5, lh * 0.54), '#F7F3E7');
   }
 
   if (view.flash > 0) {
@@ -2324,6 +2671,49 @@ function drawHud(ctx, view, layout) {
   }
 
   return { pauseHit: { x: layout.x + layout.w - pauseR * 2, y, w: pauseR * 2, h }, badgeHit };
+}
+
+/* ---- music skill check (earphones in) -----------------------------------
+   A sweeping needle across a dial with a marked zone. Tap inside the zone to
+   mute the music and get your hearing back. Drawn low and central so it never
+   fights the HUD for attention, and always with the reason spelled out — a
+   player who does not know WHY the cars vanished has just been cheated.
+   ------------------------------------------------------------------------- */
+function drawMusicCheck(ctx, view, ev, progress, inWindow) {
+  const layout = boardLayout(view.viewW, view.viewH);
+  const w = Math.min(layout.w * 0.62, 340);
+  const h = Math.max(60, layout.h * 0.1);
+  const x = layout.x + (layout.w - w) / 2;
+  const y = layout.y + layout.h - h - Math.max(16, layout.h * 0.05);
+
+  contactShadow(ctx, x + w / 2, y + h + 5, w * 0.4, 8, 0.34);
+  depthRect(ctx, x, y, w, h, 12, '#221B14', 4);
+  fillRoundRect(ctx, x + 3, y + 3, w - 6, h - 6, 10,
+    vGradient(ctx, y, y + h, '#33291E', '#1D1710'));
+
+  chunkyText(ctx, '🎧 MUTE THE MUSIC', x + w / 2, y + h * 0.26,
+    Math.max(11, h * 0.22), '#F2E4C4');
+
+  // the dial
+  const trackX = x + w * 0.08;
+  const trackW = w * 0.84;
+  const trackY = y + h * 0.62;
+  const trackH = Math.max(9, h * 0.2);
+  fillRoundRect(ctx, trackX, trackY, trackW, trackH, trackH / 2, 'rgba(0,0,0,0.55)');
+
+  // the hit zone
+  const zx = trackX + trackW * CONFIG.MUSIC_HIT_START;
+  const zw = trackW * (CONFIG.MUSIC_HIT_END - CONFIG.MUSIC_HIT_START);
+  fillRoundRect(ctx, zx, trackY, zw, trackH, trackH / 2,
+    inWindow ? PALETTE.signalGreen : 'rgba(90,168,112,0.55)');
+
+  // the needle
+  const nx = trackX + trackW * progress;
+  ctx.save();
+  ctx.shadowColor = 'rgba(0,0,0,0.6)';
+  ctx.shadowBlur = 6;
+  fillRoundRect(ctx, nx - 2.5, trackY - trackH * 0.55, 5, trackH * 2.1, 2.5, '#FAF5E6');
+  ctx.restore();
 }
 
 /* ---- small toast (Young tier only — auto-clears, no input possible) ------ */
@@ -2536,6 +2926,17 @@ function newRun(tierIndex) {
     // angle, +y down), which is the direction of travel.
     aimRad: -Math.PI / 2,
 
+    // Music skill check (earphones in). musicDeafUntilMs is when hearing
+    // comes back after a miss; while it is in the future, cars are not drawn.
+    musicSchedule: musicCheckSchedule(tier, worldSeed),
+    lastMusicStart: -1,
+    activeMusic: null,             // { event, resolved } | null
+    musicDeafUntilMs: 0,
+
+    // Coffee (office tier): how long the player has been stood on a road band.
+    roadDwellMs: 0,
+    lastSpillMs: -Infinity,
+
     // Phone distraction.
     schedule: distractionSchedule(tier, worldSeed),
     lastScheduledStart: -1,
@@ -2561,15 +2962,13 @@ function bandData(band) {
     // this band from that crossing never lands on a blocked cell.
     const ahead = bandAtRow(run.bands, band.startRow + band.rows);
     const zebraAhead = ahead && ahead.type === 'road' ? ahead.zebraCol : null;
-    const signalAhead = ahead && ahead.type === 'road' ? signalColFor(ahead) : null;
     const behind = band.startRow > 0 ? bandAtRow(run.bands, band.startRow - 1) : null;
     const zebraBehind = behind && behind.type === 'road' ? behind.zebraCol : null;
     data = {
       cars: [],
       hazard: null,
       obstacles: obstaclesForBand(band, zebraAhead,
-        makeRng(band.seed + run.state.worldSeed + 5077), (CONFIG.GRID_COLS / 2) | 0,
-        signalAhead, zebraBehind),
+        makeRng(band.seed + run.state.worldSeed + 5077), (CONFIG.GRID_COLS / 2) | 0, zebraBehind),
     };
   } else {
     data = {
@@ -2582,19 +2981,12 @@ function bandData(band) {
   return data;
 }
 
-// The kerbside signal post is solid, like any other prop — it stands on the
-// pavement row immediately before the road band it serves.
-function signalBlocksAt(row, col) {
-  const ahead = bandAtRow(run.bands, row + 1);
-  return !!ahead && ahead.type === 'road' && ahead.startRow === row + 1
-    && col === signalColFor(ahead);
-}
-
-// Solid props anywhere in the loaded world.
+// Solid props anywhere in the loaded world. The signal post is walkable —
+// it's drawn on the kerb but was never meant to physically block the whole
+// column behind it.
 function blockedAt(row, col) {
   const band = bandAtRow(run.bands, row);
   if (!band) return false;
-  if (signalBlocksAt(row, col)) return true;
   return isBlocked(bandData(band).obstacles, row, col);
 }
 
@@ -2724,6 +3116,82 @@ function updateDistraction() {
   }
 }
 
+/* ---- music skill check --------------------------------------------------- */
+// True while the player cannot hear traffic: either a track is actively
+// playing, or they just missed the check and are still deafened.
+function musicDeafens() {
+  return !!(run.activeMusic && !run.activeMusic.resolved)
+    || run.elapsedMs < run.musicDeafUntilMs;
+}
+
+function updateMusic() {
+  const ev = activeMusicCheck(run.musicSchedule, run.elapsedMs);
+
+  if (ev && ev.startMs > run.lastMusicStart) {
+    run.lastMusicStart = ev.startMs;
+    run.activeMusic = { event: ev, resolved: false };
+    blip(300, 0.05);
+  }
+
+  // The sweep ran out without a tap: the player keeps crossing deaf.
+  if (run.activeMusic && !run.activeMusic.resolved) {
+    const e = run.activeMusic.event;
+    if (run.elapsedMs >= e.startMs + e.durationMs) {
+      run.state = resolveMusicCheck(run.state, false);
+      run.musicDeafUntilMs = run.elapsedMs + CONFIG.MUSIC_DEAF_MS;
+      run.activeMusic = null;
+      run.flourishes.push({ text: 'MISSED — STILL DEAF', t: 0 });
+      blip(150, 0.08);
+    }
+  } else if (run.activeMusic && run.activeMusic.resolved) {
+    if (run.elapsedMs >= run.activeMusic.clearAtMs) run.activeMusic = null;
+  }
+}
+
+function musicCheckInWindowNow() {
+  return !!(run && run.activeMusic && !run.activeMusic.resolved
+    && musicCheckInHitWindow(run.activeMusic.event, run.elapsedMs));
+}
+
+// Called by a tap/keypress. Returns true if it consumed the input.
+function tryMusicCheck() {
+  if (!run || run.phase !== 'playing') return false;
+  if (!run.activeMusic || run.activeMusic.resolved) return false;
+
+  const hit = musicCheckInHitWindow(run.activeMusic.event, run.elapsedMs);
+  run.state = resolveMusicCheck(run.state, hit);
+  if (hit) {
+    run.activeMusic = { ...run.activeMusic, resolved: true, clearAtMs: run.elapsedMs + 260 };
+    run.musicDeafUntilMs = 0;                       // hearing restored immediately
+    run.flourishes.push({ text: 'MUTED', t: 0 });
+    blip(760, 0.09);
+  } else {
+    run.musicDeafUntilMs = run.elapsedMs + CONFIG.MUSIC_DEAF_MS;
+    run.activeMusic = null;
+    run.flourishes.push({ text: 'MISSED — STILL DEAF', t: 0 });
+    blip(150, 0.08);
+  }
+  return true;
+}
+
+/* ---- coffee (office tier) ------------------------------------------------ */
+// Dithering in a live carriageway is the behaviour this punishes, so the
+// dwell clock only runs while the player is actually stood on a road band.
+function updateCoffee(dt) {
+  const band = bandAtRow(run.bands, run.row);
+  const onRoad = !!band && band.type === 'road';
+  if (!onRoad) { run.roadDwellMs = 0; return; }
+
+  run.roadDwellMs += dt * 1000;
+  if (!coffeeSpillDue(run.tier, true, run.roadDwellMs)) return;
+  // One spill per dwell, then the clock restarts — standing there longer
+  // keeps costing, but not every single frame.
+  run.state = resolveCoffeeSpill(run.state);
+  run.roadDwellMs = 0;
+  run.flourishes.push({ text: 'COFFEE SPILLED', t: 0 });
+  blip(210, 0.07);
+}
+
 /* ---- movement ----------------------------------------------------------- */
 function tryMove(dRow, dCol) {
   if (!run || run.phase !== 'playing') return;
@@ -2808,6 +3276,8 @@ function update(dt) {
 
   extendWorld();
   updateDistraction();
+  updateMusic();
+  updateCoffee(dt);
   run.distance = Math.max(run.distance, run.row);
   run.cameraRow += (run.row - run.cameraRow) * Math.min(1, dt * CONFIG.CAMERA_CHASE);
   // The wall paces the player, so it needs to know where they are — but it
@@ -2826,10 +3296,15 @@ function update(dt) {
   if (band && band.type === 'road' && run.hopT >= 0.35) {
     const data = bandData(band);
     for (const car of data.cars) {
-      if (carHitsPlayer(car, run.row, p.col)) { endRun('hit'); return; }
+      if (!carHitsPlayer(car, run.row, p.col)) continue;
+      // Which lesson this death teaches depends on WHY the car was there: a
+      // driver who ran the red teaches "a green man is not protection", an
+      // ordinary one teaches "look before you step out".
+      endRun(carRunsRedLight(car, band, run.elapsedMs) ? 'redRunner' : 'car');
+      return;
     }
     if (data.hazard && hazardHitsPlayer(band, data.hazard, run.elapsedMs, run.row)) {
-      endRun('hit');
+      endRun('hazard');
       return;
     }
   }
@@ -2913,6 +3388,9 @@ function draw(viewW, viewH) {
     coneRadiusTiles: coneRadiusFor(fogActive),
     pendingCount: run.pendingNotifications.length,
     pendingSafe: isSafeToCheck(),
+    // Render-only, exactly like the vision cone: the cars are still there,
+    // still moving, still lethal — you simply cannot hear them coming.
+    musicDeaf: musicDeafens(),
   };
   const frameHits = drawFrame(ctx, view);
   pauseHit = frameHits.pauseHit;
@@ -2931,6 +3409,15 @@ function draw(viewW, viewH) {
     } else {
       distractionHits = drawDistractionBlock(ctx, view, { event, content, resolved, progress }, reducedMotion);
     }
+  }
+
+  // The music dial sits above everything: it is time-critical, and a card
+  // drawn over it would cost the player the check through no fault of theirs.
+  if (run.activeMusic && !run.activeMusic.resolved && run.phase === 'playing') {
+    const ev = run.activeMusic.event;
+    drawMusicCheck(ctx, view, ev,
+      musicCheckProgress(ev, run.elapsedMs),
+      musicCheckInHitWindow(ev, run.elapsedMs));
   }
   ctx.restore();
 }
@@ -2977,9 +3464,9 @@ function showGameOver() {
     `${t.legalCrossings} safe crossings · ${t.violations} unsafe crossings · `
     + `${t.notificationsMissed} messages missed · `
     + `${(avgKerbWaitMs(t) / 1000).toFixed(1)}s average wait at kerbs`;
-  el('over-cause').textContent = run.endReason === 'wall'
-    ? 'The wall caught you.'
-    : 'You stepped into traffic.';
+  const cause = deathCause(run.endReason);
+  el('over-cause').textContent = cause.title;
+  el('over-lesson').textContent = cause.lesson;
   showScreen('over');
   const screen = el('over-screen');
   if (!reducedMotion) {
@@ -3037,6 +3524,9 @@ window.addEventListener('keydown', (e) => {
   }
 
   if (e.code === 'Space') {
+    // Music is time-critical, so it gets the key first; a queued message can
+    // always wait a moment longer, which is rather the point of the game.
+    if (run && run.phase === 'playing' && tryMusicCheck()) { e.preventDefault(); return; }
     if (run && run.phase === 'playing' && run.pendingNotifications.length > 0) {
       e.preventDefault();
       openPendingNotification();
@@ -3110,6 +3600,9 @@ canvas.addEventListener('pointerup', (e) => {
   if (Math.abs(dx) < CONFIG.SWIPE_MIN_PX && Math.abs(dy) < CONFIG.SWIPE_MIN_PX) {
     if (within(pauseHit, px, py)) { togglePause(); return; }
     if (within(badgeHit, px, py)) { openPendingNotification(); return; }
+    // A tap during a music sweep is aimed at the dial, not at moving —
+    // otherwise muting the music would walk you into the road doing it.
+    if (tryMusicCheck()) return;
     tryMove(1, 0);                                     // tap anywhere hops forward
     return;
   }
@@ -3161,6 +3654,13 @@ window.__game = {
   aimAt,
   settleDistraction,
   openPendingNotification,
+  // Music skill check, for automated play: musicPending() says a sweep is up
+  // and waiting, tryMusicCheck() taps it. A bot that ignores these goes deaf
+  // and loses ground exactly like a player who ignores them would.
+  musicPending: () => !!(run && run.activeMusic && !run.activeMusic.resolved),
+  musicInWindow: () => !!(run && run.activeMusic && !run.activeMusic.resolved
+    && musicCheckInWindowNow()),
+  tryMusicCheck,
   bandAt: (r) => run && bandAtRow(run.bands, r),
   blockedAt,
   // The game's OWN signal reading. Automated checks must never recompute this:
