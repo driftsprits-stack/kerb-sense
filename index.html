@@ -1,0 +1,2830 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Kerb Sense</title>
+<style>
+/* Design tokens. Single locked theme: the 2011 early-Retina look is the
+   product, so there is no dark variant. See REFERENCE.md. */
+:root{
+  --green-mid:#5E9B31; --green-lift:#7FC04A; --green-edge:#3F6D22;
+  --board:#EDD9A3; --board-hi:#F7E9C4; --board-lo:#D8BE81;
+  --badge-top:#4A3823; --badge-bot:#2B2015;
+  --gold-hi:#E9BC4E; --gold-lo:#A8762A;
+  --ink:#2B2015; --ink-soft:rgba(43,32,21,.66); --warm-white:#FFF3D2;
+  --r-card:22px; --r-btn:14px;
+  --font:'Arial Rounded MT Bold','Baloo 2','Nunito','Trebuchet MS',system-ui,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;overflow:hidden}
+body{
+  font-family:var(--font);
+  background:radial-gradient(ellipse at 50% 42%,var(--green-lift),var(--green-mid) 55%,var(--green-edge));
+  color:var(--ink);
+  -webkit-font-smoothing:antialiased;
+  touch-action:none;
+}
+#game{display:block;width:100%;height:100%;outline:none;touch-action:none}
+
+.screen{
+  position:fixed;inset:0;z-index:10;
+  display:flex;align-items:center;justify-content:center;
+  padding:24px;
+  background:radial-gradient(ellipse at 50% 40%,rgba(63,109,34,.42),rgba(30,52,16,.72));
+  backdrop-filter:blur(2px);
+}
+.screen[hidden]{display:none}
+
+.card{
+  width:min(440px,100%);
+  max-height:calc(100dvh - 48px);
+  overflow-y:auto;
+  padding:26px 24px 24px;
+  border-radius:var(--r-card);
+  border:3px solid var(--gold-lo);
+  background:linear-gradient(180deg,var(--board-hi),var(--board) 46%,var(--board-lo));
+  box-shadow:0 14px 34px rgba(28,48,12,.46),inset 0 2px 0 rgba(255,255,255,.7);
+  text-align:center;
+}
+
+h1{
+  margin:0 0 4px;
+  font-size:clamp(30px,7vw,42px);
+  letter-spacing:.5px;
+  color:var(--ink);
+  text-shadow:0 2px 0 rgba(255,255,255,.55);
+}
+.tagline{margin:0 0 20px;font-size:15px;color:var(--ink-soft)}
+
+.tier-chip{
+  position:relative;
+  width:56px;height:56px;border-radius:50%;
+  margin:0 auto 10px;
+  background:radial-gradient(circle at 50% 34%,var(--head) 0 40%,var(--body) 42%);
+  box-shadow:0 2px 0 rgba(0,0,0,.28),inset 0 2px 3px rgba(255,255,255,.5);
+}
+.tier-chip::before{
+  content:"";
+  position:absolute;
+  top:3px;left:9px;right:9px;height:44%;
+  background:var(--hair);
+  border-radius:50% 50% 0 0/100% 100% 0 0;
+}
+.tier-name{margin:0 0 2px;font-size:19px;text-align:center}
+.tier-blurb{margin:0 0 4px;font-size:13px;color:var(--ink-soft);text-align:center;line-height:1.35;min-height:2.6em}
+
+.tier-slider-wrap{margin:10px 0 4px}
+input[type=range].tier-slider{
+  -webkit-appearance:none;appearance:none;
+  width:100%;height:14px;border-radius:999px;
+  background:linear-gradient(180deg,var(--badge-top),var(--badge-bot));
+  box-shadow:inset 0 2px 4px rgba(0,0,0,.4),0 2px 0 var(--gold-lo);
+  outline:none;
+  margin:14px 0 8px;
+}
+input[type=range].tier-slider::-webkit-slider-thumb{
+  -webkit-appearance:none;
+  width:30px;height:30px;border-radius:50%;
+  background:linear-gradient(180deg,var(--gold-hi),var(--gold-lo));
+  border:2px solid var(--badge-bot);
+  box-shadow:0 3px 0 rgba(0,0,0,.34),inset 0 2px 0 rgba(255,255,255,.5);
+  cursor:pointer;
+}
+input[type=range].tier-slider::-moz-range-thumb{
+  width:30px;height:30px;border-radius:50%;
+  background:linear-gradient(180deg,var(--gold-hi),var(--gold-lo));
+  border:2px solid var(--badge-bot);
+  box-shadow:0 3px 0 rgba(0,0,0,.34);
+  cursor:pointer;
+}
+input[type=range].tier-slider::-moz-range-track{
+  height:14px;border-radius:999px;
+  background:linear-gradient(180deg,var(--badge-top),var(--badge-bot));
+}
+.tier-labels{display:flex;justify-content:space-between;font-size:11px;color:var(--ink-soft);padding:0 2px}
+
+.btn{
+  font-family:var(--font);
+  font-size:16px;
+  padding:13px 22px;
+  border-radius:var(--r-btn);
+  border:2px solid var(--gold-lo);
+  color:var(--warm-white);
+  background:linear-gradient(180deg,var(--badge-top),var(--badge-bot));
+  box-shadow:0 3px 0 rgba(0,0,0,.34),0 8px 16px rgba(28,48,12,.28),inset 0 2px 0 rgba(255,255,255,.22);
+  cursor:pointer;
+  white-space:nowrap;
+  transition:transform .12s ease,box-shadow .12s ease;
+}
+.btn:hover{transform:translateY(-1px)}
+.btn:active{transform:translateY(2px);box-shadow:0 1px 0 rgba(0,0,0,.34),inset 0 2px 0 rgba(255,255,255,.14)}
+.btn.secondary{
+  color:var(--ink);
+  background:linear-gradient(180deg,#FBF0CE,#E4CE96);
+  box-shadow:0 3px 0 var(--gold-lo),0 8px 16px rgba(28,48,12,.22),inset 0 2px 0 rgba(255,255,255,.7);
+}
+.btn-row{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:18px}
+
+:focus-visible{outline:4px solid #2B2015;outline-offset:3px;border-radius:var(--r-btn)}
+.btn:focus-visible{outline:4px solid #2B2015;outline-offset:3px}
+input[type=range].tier-slider:focus-visible{outline:4px solid #2B2015;outline-offset:4px}
+
+.stats{display:flex;gap:10px;justify-content:center;margin:14px 0 12px}
+.stat{
+  flex:1;padding:11px 8px;border-radius:var(--r-btn);
+  border:2px solid var(--gold-lo);
+  background:linear-gradient(180deg,var(--badge-top),var(--badge-bot));
+  box-shadow:inset 0 2px 0 rgba(255,255,255,.2);
+}
+.stat b{display:block;font-size:27px;color:var(--warm-white);line-height:1.1}
+.stat span{display:block;font-size:10.5px;letter-spacing:1px;color:rgba(255,243,210,.62)}
+
+.cause{margin:0 0 2px;font-size:14px;color:var(--ink-soft)}
+.feedback{
+  margin:12px 0 0;padding:12px 14px;
+  font-size:15px;line-height:1.4;
+  border-radius:var(--r-btn);
+  background:rgba(43,32,21,.09);
+  border:2px solid rgba(168,118,42,.42);
+}
+.telemetry{margin:9px 0 0;font-size:11.5px;color:var(--ink-soft);line-height:1.5}
+.hint{margin:16px 0 0;font-size:12.5px;color:var(--ink-soft);line-height:1.5}
+
+.tips-list{text-align:left;margin:0 0 4px;padding-left:0;list-style:none;display:grid;gap:10px}
+.tips-list li{
+  font-size:14px;line-height:1.4;
+  padding:10px 12px;border-radius:var(--r-btn);
+  background:rgba(43,32,21,.07);
+  border:1px solid rgba(168,118,42,.32);
+}
+.tips-list li b{color:var(--ink);display:block;font-size:14.5px;margin-bottom:2px}
+
+.slide{animation:rise .26s cubic-bezier(.16,1,.3,1)}
+@keyframes rise{from{transform:translateY(16px);opacity:0}to{transform:none;opacity:1}}
+@media (prefers-reduced-motion:reduce){
+  .slide{animation:none}
+  .btn{transition:none}
+  .btn:hover{transform:none}
+}
+</style>
+</head>
+<body>
+<canvas id="game" tabindex="0" aria-label="Road crossing game board"></canvas>
+
+<div class="screen" id="pledge-screen">
+  <div class="card">
+    <h1>Kerb Sense</h1>
+    <p class="tagline">Before you play</p>
+    <p class="feedback">&ldquo;I solemnly swear not to check my phone while crossing.&rdquo;</p>
+    <div class="btn-row">
+      <button class="btn" id="pledge-btn" type="button">I promise</button>
+    </div>
+  </div>
+</div>
+
+<div class="screen" id="start-screen" hidden>
+  <div class="card">
+    <h1>Kerb Sense</h1>
+    <p class="tagline">Choose your difficulty.</p>
+    <div class="tier-chip" id="tier-chip"></div>
+    <p class="tier-name" id="tier-name"></p>
+    <p class="tier-blurb" id="tier-blurb"></p>
+    <div class="tier-slider-wrap">
+      <input type="range" class="tier-slider" id="tier-slider" min="0" max="2" step="1" value="0"
+        aria-label="Difficulty tier">
+      <div class="tier-labels"><span>Young</span><span>20-Something</span><span>Office</span></div>
+    </div>
+    <div class="btn-row">
+      <button class="btn" id="start-btn" type="button">Start crossing</button>
+      <button class="btn secondary" id="tips-btn" type="button">How to play</button>
+    </div>
+    <p class="hint">
+      Arrows or WASD to move. Aim your vision with the cursor.
+      On a phone, swipe or tap to hop, drag to look around.
+    </p>
+  </div>
+</div>
+
+<div class="screen" id="tips-screen" hidden>
+  <div class="card">
+    <h1>How to play</h1>
+    <ul class="tips-list">
+      <li><b>You only see where you look.</b> Move your cursor (or drag on a phone) to aim
+        your vision. Traffic outside the cone is still there — you just can't see it.</li>
+      <li><b>Green means cars are braking, not that the road is clear.</b> Look both ways
+        before you step out, every time.</li>
+      <li><b>Cross between the dashed lines.</b> Crossing there on green pushes the wall back.</li>
+      <li><b>The warning triangle means don't cross yet.</b> A speeding car is about to take
+        the whole lane and it will not stop for you.</li>
+      <li><b>Keep moving.</b> The wall matches your pace — it only gains ground when you
+        hesitate, jaywalk, or get a message wrong.</li>
+    </ul>
+    <div class="btn-row">
+      <button class="btn" id="tips-back-btn" type="button">Back</button>
+    </div>
+  </div>
+</div>
+
+<div class="screen" id="over-screen" hidden>
+  <div class="card">
+    <h1>Run ended</h1>
+    <p class="cause" id="over-cause"></p>
+    <div class="stats">
+      <div class="stat"><b id="over-distance">0</b><span>DISTANCE</span></div>
+      <div class="stat"><b id="over-combo">0</b><span>BEST COMBO</span></div>
+    </div>
+    <p class="feedback" id="over-feedback"></p>
+    <p class="telemetry" id="over-telemetry"></p>
+    <div class="btn-row">
+      <button class="btn" id="again-btn" type="button">Play again</button>
+      <button class="btn secondary" id="change-btn" type="button">Change difficulty</button>
+    </div>
+  </div>
+</div>
+
+<div class="screen" id="pause-screen" hidden>
+  <div class="card">
+    <h1>Paused</h1>
+    <div class="btn-row">
+      <button class="btn" id="resume-btn" type="button">Resume</button>
+      <button class="btn secondary" id="quit-btn" type="button">Change difficulty</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* Kerb Sense — single-file build. Source of truth is src/*.js. */
+(function () {
+'use strict';
+/* =========================================================================
+   rules.js — PURE game logic. No canvas, no DOM, no clock, no randomness
+   that isn't seeded. Everything here is unit-tested by test/rules.test.js.
+   ========================================================================= */
+
+const CONFIG = {
+  // ---- Board -------------------------------------------------------------
+  GRID_COLS: 11,          // logical columns; raise = wider board, cars take longer to cross
+  TILE: 44,               // logical px per tile before viewport scaling
+  ZEBRA_WIDTH: 3,         // tiles wide. The ONLY legal crossing corridor per road band.
+  HOP_MS: 150,             // hop duration. One global speed — difficulty never comes from this.
+
+  // ---- Doom wall (rubber-band chase) --------------------------------------
+  // The wall PACES the player rather than running at an absolute speed: it can
+  // never fall more than WALL_TRAIL_ROWS behind, so it is always on screen and
+  // always a visible threat. It only closes the gap when the player stops
+  // making progress — idling, hesitating, or blundering. Crossy Road / Subway
+  // Surfers pacing, not a fixed-speed race.
+  // Creep must stay inside a window bounded at BOTH ends, or the wall is
+  // either unfair or irrelevant:
+  //   above WALL_TRAIL_ROWS / IDLE_DEATH_SECONDS  -> standing still is fatal
+  //   below STEADY_ADVANCE_ROWS_PER_SEC           -> steady play is survivable
+  // Both ends are asserted by tests at every tier.
+  // Must stay small enough that the camera can always frame it: render.js
+  // pins the camera at least WALL_TRAIL_ROWS + 1 rows above the board bottom,
+  // so raising this eats the forward visibility the player needs.
+  // In a pacing model the wall sits at (playerRow - trail) whenever the player
+  // is moving, so shoving wallRow around does nothing — the leash just drags it
+  // straight back. Good and bad actions therefore move the LEASH ITSELF:
+  // blunder and the wall closes to breathe down your neck, play well and it
+  // gives ground back. Bounded at both ends so it is always on screen and
+  // never instantly lethal.
+  WALL_TRAIL_ROWS: 4.5,       // maximum (and starting) trailing distance
+  WALL_MIN_TRAIL_ROWS: 1.2,   // closest the wall can be shoved by blunders
+  WALL_PUSHBACK_TILES: 1.2,   // trail RECOVERED per good action
+  WALL_SURGE_ROWS: 1.1,       // trail LOST per bad action
+  JAYWALK_SPEED_PENALTY: 0.20, // creep gets 20% faster per violation, permanently, compounding
+  WALL_START_GAP: 6,          // rows behind the player at the start of a run
+
+  // ---- Balance assumptions (documented so the guarantee tests are honest) -
+  // With a pacing wall the guarantee is no longer "outrun it" but "keep moving
+  // and it cannot reach you; stand still and it will".
+  IDLE_DEATH_SECONDS: 12,         // standing still this long must be fatal at every tier
+  // ...but it must never be INSTANT either, or a player still reading the
+  // board at a live demo dies before their first move. Both bounds are tested.
+  IDLE_GRACE_SECONDS: 4,
+  STEADY_ADVANCE_ROWS_PER_SEC: 1.4, // a modest, sustainable pace a real player can hold
+
+  // ---- Pedestrian signal -------------------------------------------------
+  SIGNAL_GREEN_MS: 2000,       // walk phase
+  SIGNAL_RED_MS: 1000,         // wait phase. Deliberately SHORTER than green.
+  // Per-cycle wobble on the green/red boundary so a player cannot metronome
+  // the lights. Derived from the band seed and the cycle index, so it stays a
+  // pure function of time — no hidden clock, still fully reproducible.
+  SIGNAL_JITTER_MS: 400,
+  // At this cadence there is no room for a full clearance interval, so green
+  // no longer means "the road is empty" — it means "traffic is braking for
+  // you". Cars that can stop do stop; one already committed will keep going.
+  // That is why looking still matters, and it matches the real LTA message
+  // (look right, look left, look right again, even on a green man).
+  SIGNAL_CLEARANCE_MS: 300,
+  SIGNAL_PHASE_STEP_MS: 1471,  // per-band phase offset multiplier; keeps bands desynchronised
+
+  // ---- Traffic (base values; DIFFICULTY_TIERS scale density/speed) -------
+  CAR_SPEED_MIN: 3.6,      // columns/sec
+  CAR_SPEED_MAX: 6.4,
+  CAR_ACCEL: 6,            // columns/sec^2 pulling away
+  CAR_DECEL: 14,           // columns/sec^2 braking — harder than accel, reads as "stopping for you"
+  // Must exceed CAR_LEN_MAX/2 + PLAYER_HIT_PAD, or a correctly stopped car
+  // still overlaps the first zebra column. This is a static geometry fact,
+  // independent of tier speed scaling.
+  CAR_STOP_GAP: 1.8,       // columns short of the zebra a car halts
+  CAR_LEN_MIN: 1.4,
+  CAR_LEN_MAX: 2.2,
+  CARS_PER_LANE: 2,        // scaled per tier by trafficDensityMult
+  CAR_WRAP_MARGIN: 4,      // columns of off-board runway before a car wraps around
+  // At least a full car length of clear air between cars in the same lane, so
+  // queues read as separate vehicles instead of one clumped mass.
+  CAR_FOLLOW_GAP: 1.6,
+  PLAYER_HIT_PAD: 0.35,    // forgiveness either side of a car's length
+
+  // ---- Telegraphed hazard car (Jetpack-Joyride style, unavoidable) -------
+  // A periodic sweep across a whole lane's width that ignores the pedestrian
+  // signal entirely. The only safe response is not being on that row when it
+  // passes — telegraphed well ahead so it never reads as an unfair death.
+  HAZARD_CYCLE_MS: 9000,       // how often an eligible band's hazard lane recurs
+  HAZARD_SWEEP_MS: 1500,       // how long the row stays lethal
+  HAZARD_CAR_WARN_MS: 1700,    // warning-triangle lead time before the sweep
+
+  // ---- Phone distraction --------------------------------------------------
+  TOAST_DURATION_MS: 1800,          // Young tier: auto-clears, no input possible
+  NOTIFICATION_DURATION_MS: 4200,   // reply-required block: time before a miss is scored
+  CALL_DURATION_MS: 5200,           // longer block; ends on a reaction tap, not typed reply
+  DISTRACTION_LUNGE_ROWS: 0.9,      // trail LOST on a missed/wrong reply. NOT permanent
+                                     // (that stays reserved for the jaywalk penalty).
+  BOSS_EVENT_EVERY_ROWS: 50,        // a harsher boss message every N rows, repeating forever
+
+  // ---- Tunnel vision cone (Project Zomboid-style directional sight) --------
+  // The player only truly sees inside a cone they aim with the cursor (or by
+  // dragging on touch). Outside it the board is darkened and cars, hazards and
+  // props are hidden entirely. Render-only, like all fog here: the simulation
+  // underneath is always complete, so nothing you cannot see is ever resolved
+  // unfairly — you are blind to it, not protected from it.
+  CONE_HALF_ANGLE_DEG: 46,      // half-width of the sighted wedge
+  CONE_RADIUS_TILES: 7.5,       // how far you can see down the cone
+  CONE_NEAR_RADIUS_TILES: 1.7,  // always-visible bubble around you, whatever the aim
+  CONE_SOFT_EDGE_DEG: 12,       // angular feather so the cone edge is not a hard line
+  CONE_DARKEN: 0.82,            // how dark outside the cone gets (0 = clear, 1 = black)
+  FOG_CONE_RADIUS_TILES: 3.4,   // cone shrinks to this while a distraction has fogOfWar
+
+  // ---- Obstacles (trees and roadside props) --------------------------------
+  // Solid props on pavement rows so the board cannot be walked in a straight
+  // line. Generation always leaves a corridor through every band AND keeps the
+  // approach to each crossing clear, so a player can be slowed and forced to
+  // detour but never sealed in with the wall closing.
+  OBSTACLE_CHANCE: 0.16,        // per-cell chance on an eligible pavement cell
+
+  // ---- Feel --------------------------------------------------------------
+  MAX_DT: 0.05,            // clamp so an alt-tab never teleports the wall
+  SWIPE_MIN_PX: 24,
+  HOP_LIFT: 0.22,          // vertical "lift" of a hop, in tiles
+  CAMERA_CHASE: 9,         // how hard the camera chases the player; higher = snappier
+  SHAKE_PX: 9,             // collision screen shake amplitude
+  SHAKE_PX_REDUCED: 2,     // ...under prefers-reduced-motion
+  SHAKE_DECAY: 3,          // shake falloff per second
+  FLASH_DECAY: 2.4,        // violation flash falloff per second
+  FLOURISH_DECAY: 1.3,     // combo flourish falloff per second
+
+  // ---- Difficulty tiers ----------------------------------------------------
+  // Data-driven, ordered easiest to hardest so a slider can index straight in.
+  // Movement speed never varies — only distraction pressure, wall speed, and
+  // traffic do. A fourth tier needs only another entry here.
+  DIFFICULTY_TIERS: [
+    {
+      id: 'young', name: 'JC Student', blurb: 'Sparse pings. Plays it straight.',
+      wallCreepSpeed: 0.60,
+      trafficDensityMult: 1.0, trafficSpeedMult: 1.0, hazardCarChance: 0.08,
+      distraction: { everyMs: 14000, replyChance: 0, sender: null, fogOfWar: false, calls: false, bossEvents: false },
+      // School uniform: white shirt, navy shorts, backpack.
+      look: 'student',
+      colors: { body: '#F4F1E8', trim: '#2C3E70', head: '#F2C79A', hair: '#2A1B12', accent: '#2C3E70' },
+    },
+    {
+      id: 'blueHair', name: 'Poly Student', blurb: 'Raeann keeps texting. Check twice.',
+      wallCreepSpeed: 0.80,
+      trafficDensityMult: 1.25, trafficSpeedMult: 1.12, hazardCarChance: 0.16,
+      distraction: { everyMs: 8000, replyChance: 0.6, sender: 'raeann', fogOfWar: true, calls: false, bossEvents: false },
+      // Blue hair, oversized tee, earphones in.
+      look: 'poly',
+      colors: { body: '#2E2A38', trim: '#1E1B26', head: '#F2C79A', hair: '#4E8BD8', accent: '#E5533D' },
+    },
+    {
+      id: 'office', name: 'Office Worker', blurb: 'Boss, calls, no room to dawdle.',
+      wallCreepSpeed: 1.00,
+      trafficDensityMult: 1.5, trafficSpeedMult: 1.25, hazardCarChance: 0.26,
+      distraction: { everyMs: 5000, replyChance: 1.0, sender: 'boss', fogOfWar: true, calls: true, bossEvents: true },
+      // Shirt and slacks, staff lanyard, coffee in hand.
+      look: 'office',
+      colors: { body: '#5B7FA8', trim: '#2F3A4A', head: '#E8B78E', hair: '#1E2632', accent: '#F2B33D' },
+    },
+  ],
+
+  // ---- Message pools -------------------------------------------------------
+  // Correctness rule, kept consistent across every entry: the "correct" reply
+  // directly answers what was asked; every "wrong" reply is a non-sequitur.
+  // Real text is pure display data — resolveDistraction() only ever reads
+  // options[].correct, so none of this needs to be realistic to be testable.
+  MESSAGE_POOLS: {
+    raeann: [
+      { text: 'band practice moved to 6, u still coming??', options: [
+        { text: 'yeah omw', correct: true },
+        { text: 'moved where?', correct: false },
+        { text: 'who is this', correct: false } ] },
+      { text: 'did you eat yet?', options: [
+        { text: 'yeah just ate', correct: true },
+        { text: 'see you at 6', correct: false },
+        { text: 'sounds good', correct: false } ] },
+      { text: 'omg new wednesday trailer 😭 did u see it', options: [
+        { text: 'yesss obsessed', correct: true },
+        { text: "never watched it", correct: false },
+        { text: "who's wednesday", correct: false } ] },
+      { text: 'black or plaid skirt for the show tonight 🖤', options: [
+        { text: 'the black one obviously', correct: true },
+        { text: 'sorry on a call', correct: false },
+        { text: 'idk ask jenna', correct: false } ] },
+      { text: 'can u send the playlist link', options: [
+        { text: 'sending now', correct: true },
+        { text: 'what playlist', correct: false },
+        { text: 'later maybe', correct: false } ] },
+      { text: 'we still on for the record store after?', options: [
+        { text: 'yep see u there', correct: true },
+        { text: 'what record store', correct: false },
+        { text: "i'm busy sry", correct: false } ] },
+      { text: 'is the gig 7 or 8', options: [
+        { text: '8pm', correct: true },
+        { text: 'sounds fun', correct: false },
+        { text: "who's playing", correct: false } ] },
+      { text: 'u good? been quiet today', options: [
+        { text: 'yeah all good, just busy', correct: true },
+        { text: 'what day is it', correct: false },
+        { text: 'new phone who dis', correct: false } ] },
+    ],
+    boss: [
+      { text: 'Can you send the Q3 report before EOD?', options: [
+        { text: 'Yes, sending now', correct: true },
+        { text: 'lol maybe', correct: false },
+        { text: 'who is this', correct: false } ] },
+      { text: 'Client wants to move the meeting to 3pm, does that work?', options: [
+        { text: 'Works for me', correct: true },
+        { text: 'IDK ask someone else', correct: false },
+        { text: 'what meeting', correct: false } ] },
+      { text: 'Did you loop in the design team on this?', options: [
+        { text: "Yes, they're in the thread", correct: true },
+        { text: 'design team?', correct: false },
+        { text: 'not yet, later maybe', correct: false } ] },
+      { text: 'Are the slides ready for tomorrow?', options: [
+        { text: 'Ready, just polishing now', correct: true },
+        { text: 'what slides', correct: false },
+        { text: 'probably not tbh', correct: false } ] },
+      { text: "Please confirm you've submitted the timesheet.", options: [
+        { text: 'Confirmed, submitted', correct: true },
+        { text: 'timesheet due already?', correct: false },
+        { text: 'will do next week', correct: false } ] },
+      { text: 'Can we push the deadline by a day?', options: [
+        { text: "Should be fine, I'll confirm", correct: true },
+        { text: 'no idea, not my call', correct: false },
+        { text: 'why would we do that', correct: false } ] },
+      { text: 'Great work on the pitch today.', options: [
+        { text: 'Thank you, appreciate it', correct: true },
+        { text: 'was it though', correct: false },
+        { text: "who's this again", correct: false } ] },
+      { text: 'Need those numbers before the call in 10.', options: [
+        { text: 'Sending them now', correct: true },
+        { text: 'what call', correct: false },
+        { text: 'give me till tomorrow', correct: false } ] },
+    ],
+    callReactions: [
+      { text: "React to confirm you're back:", options: [
+        { text: '👍', correct: true }, { text: '😂', correct: false }, { text: '🎉', correct: false } ] },
+      { text: 'Acknowledge the call ended:', options: [
+        { text: '✅', correct: true }, { text: '😢', correct: false }, { text: '🔥', correct: false } ] },
+    ],
+  },
+};
+
+/* ---- Deterministic PRNG (mulberry32) ------------------------------------ */
+function makeRng(seed) {
+  let a = (seed >>> 0) || 1;
+  return function rng() {
+    a |= 0; a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+const lerp = (a, b, t) => a + (b - a) * t;
+
+/* ---- Bands -------------------------------------------------------------- */
+// Band = { index, type, startRow, rows, zebraCol, seed, lanes:[{dir,speed,laneSeed}] }
+// Deliberately tier-agnostic: band layout (type, size, zebra position, lane
+// directions) never depends on difficulty. Only traffic density/speed
+// (spawnCarsForBand) and hazard eligibility (hazardForBand) read the tier,
+// so this function's contract — and every test built on it — never changes.
+function buildBand(index, startRow, worldSeed) {
+  const rng = makeRng(index * 104729 + worldSeed * 1000003 + 7919);
+  const type = index % 2 === 0 ? 'pavement' : 'road';
+  const rows = type === 'pavement'
+    ? 1 + Math.floor(rng() * 2)
+    : 1 + Math.floor(rng() * 3);
+
+  const band = {
+    index, type, startRow, rows,
+    zebraCol: 0,
+    seed: Math.floor(rng() * 1e6),
+    lanes: [],
+  };
+
+  if (type === 'road') {
+    band.zebraCol = Math.floor(rng() * (CONFIG.GRID_COLS - CONFIG.ZEBRA_WIDTH + 1));
+    for (let i = 0; i < rows; i++) {
+      band.lanes.push({
+        dir: rng() < 0.5 ? 1 : -1,
+        speed: lerp(CONFIG.CAR_SPEED_MIN, CONFIG.CAR_SPEED_MAX, rng()),
+        laneSeed: Math.floor(rng() * 1e6),
+      });
+    }
+  }
+  return band;
+}
+
+function generateBands(fromIndex, count, worldSeed) {
+  // Every band is built from index 0 even when only a later slice is wanted:
+  // startRow is the running total of the row counts before it, so the earlier
+  // bands have to be generated to know where this slice begins.
+  const out = [];
+  let startRow = 0;
+  const end = fromIndex + count;
+  for (let i = 0; i < end; i++) {
+    const band = buildBand(i, startRow, worldSeed | 0);
+    startRow += band.rows;
+    if (i >= fromIndex) out.push(band);
+  }
+  return out;
+}
+
+function bandAtRow(bands, row) {
+  for (const b of bands) {
+    if (row >= b.startRow && row < b.startRow + b.rows) return b;
+  }
+  return null;
+}
+
+/* ---- Repeating cycles ---------------------------------------------------- */
+// Position within a repeating cycle, wrapped to [0, cycleMs). The offset shifts
+// each band's phase so neighbours never fire in lockstep; the double modulo
+// keeps the result positive for negative elapsedMs. Shared by the pedestrian
+// signal and the hazard sweep, which are the same idea at different periods.
+function cyclePos(elapsedMs, offsetMs, cycleMs) {
+  return (((elapsedMs + offsetMs) % cycleMs) + cycleMs) % cycleMs;
+}
+
+/* ---- Pedestrian signal — pure function of elapsed time and band seed ----- */
+// Deterministic 0..1 hash. Used to wobble each cycle's green/red boundary so
+// the lights cannot be metronomed, while signalPhase stays a pure function of
+// (time, seed) with no hidden clock and no accumulated state.
+function hash01(a, b) {
+  let h = Math.imul(a ^ 0x9e3779b9, 0x85ebca6b) ^ Math.imul(b + 0x165667b1, 0xc2b2ae35);
+  h = Math.imul(h ^ (h >>> 13), 0x27d4eb2f);
+  return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+}
+
+// Where this band sits in its own green/red cycle. The cycle LENGTH is fixed;
+// only the boundary between green and red moves, by up to +/- half of
+// SIGNAL_JITTER_MS, varying per cycle.
+function signalCycle(elapsedMs, bandSeed) {
+  const cycleMs = CONFIG.SIGNAL_GREEN_MS + CONFIG.SIGNAL_RED_MS;
+  const offsetMs = (bandSeed * CONFIG.SIGNAL_PHASE_STEP_MS) % cycleMs;
+  const shifted = elapsedMs + offsetMs;
+  const cycleIndex = Math.floor(shifted / cycleMs);
+  const jitter = (hash01(bandSeed | 0, cycleIndex) - 0.5) * CONFIG.SIGNAL_JITTER_MS;
+  // Clamped so a jittered green can never vanish or swallow the whole cycle.
+  const greenMs = Math.min(cycleMs - 250, Math.max(250, CONFIG.SIGNAL_GREEN_MS + jitter));
+  return { cycleMs, greenMs, posMs: cyclePos(elapsedMs, offsetMs, cycleMs) };
+}
+
+function signalPhase(elapsedMs, bandSeed) {
+  const { posMs, greenMs } = signalCycle(elapsedMs, bandSeed);
+  return posMs < greenMs ? 'green' : 'red';
+}
+
+// True while traffic must hold: the whole pedestrian green, plus the clearance
+// interval at the tail of red that empties the crossing beforehand.
+function signalStopsTraffic(elapsedMs, bandSeed) {
+  const { cycleMs, greenMs, posMs } = signalCycle(elapsedMs, bandSeed);
+  if (posMs < greenMs) return true;
+  return cycleMs - posMs <= CONFIG.SIGNAL_CLEARANCE_MS;
+}
+
+function signalPhaseProgress(elapsedMs, bandSeed) {
+  const { cycleMs, greenMs, posMs } = signalCycle(elapsedMs, bandSeed);
+  return posMs < greenMs
+    ? posMs / greenMs
+    : (posMs - greenMs) / (cycleMs - greenMs);
+}
+
+/* ---- Telemetry ---------------------------------------------------------- */
+// In-memory only. Nothing is transmitted. This becomes the project's impact
+// measurement later, so it is structured rather than ad-hoc counters.
+function createTelemetry() {
+  return {
+    legalCrossings: 0, violations: 0, kerbWaitTotalMs: 0, kerbWaitCount: 0,
+    notificationsSeen: 0, notificationsMissed: 0,
+    callsAnswered: 0, callsMissed: 0,
+    bossEventsMissed: 0,
+  };
+}
+
+function avgKerbWaitMs(telemetry) {
+  return telemetry.kerbWaitCount === 0
+    ? 0
+    : telemetry.kerbWaitTotalMs / telemetry.kerbWaitCount;
+}
+
+function recordKerbWait(state, waitMs) {
+  return {
+    ...state,
+    telemetry: {
+      ...state.telemetry,
+      kerbWaitTotalMs: state.telemetry.kerbWaitTotalMs + waitMs,
+      kerbWaitCount: state.telemetry.kerbWaitCount + 1,
+    },
+  };
+}
+
+/* ---- Run state ---------------------------------------------------------- */
+function createState(tierIndex, worldSeed) {
+  return {
+    tierIndex,
+    worldSeed,
+    combo: 0,
+    bestCombo: 0,
+    violations: 0,
+    wallRow: -CONFIG.WALL_START_GAP,
+    trailRows: CONFIG.WALL_TRAIL_ROWS,
+    wallSpeedMult: 1,
+    telemetry: createTelemetry(),
+  };
+}
+
+/* ---- Crossing lifecycle ------------------------------------------------- */
+function isInZebra(band, col) {
+  return band.type === 'road'
+    && col >= band.zebraCol
+    && col < band.zebraCol + CONFIG.ZEBRA_WIDTH;
+}
+
+function beginCrossing(band, col, elapsedMs, entryRow) {
+  const inZebra = isInZebra(band, col);
+  return {
+    bandIndex: band.index,
+    enteredOnGreen: signalPhase(elapsedMs, band.seed) === 'green',
+    enteredInZebra: inZebra,
+    stayedInZebra: inZebra,
+    entryRow,                 // the row stepped FROM, which fixes the direction
+    startMs: elapsedMs,
+  };
+}
+
+// A band counts as crossed only when it is traversed in the direction it was
+// entered from: on from the near kerb, off at the far one. Without this,
+// hopping back in from the far side and out again scores a full crossing, and
+// the combo can be farmed on one band forever.
+function clearedForward(crossing, band, exitRow) {
+  return crossing.entryRow < band.startRow && exitRow >= band.startRow + band.rows;
+}
+
+// Sticky: drifting out and back again is still a violation.
+function trackCrossing(crossing, band, col) {
+  return { ...crossing, stayedInZebra: crossing.stayedInZebra && isInZebra(band, col) };
+}
+
+function classifyCrossing(crossing) {
+  return crossing.enteredOnGreen && crossing.enteredInZebra && crossing.stayedInZebra
+    ? 'legal'
+    : 'violation';
+}
+
+// Applies a settled outcome to the run. 'legal' and 'violation' are the only
+// things that ever move combo, wall position or wall speed.
+function applyOutcome(state, outcome) {
+  if (outcome === 'legal') {
+    const combo = state.combo + 1;
+    return {
+      ...state,
+      combo,
+      bestCombo: Math.max(state.bestCombo, combo),
+      // Good action: the wall gives ground by loosening its leash.
+      trailRows: Math.min(CONFIG.WALL_TRAIL_ROWS,
+        state.trailRows + CONFIG.WALL_PUSHBACK_TILES),
+      telemetry: { ...state.telemetry, legalCrossings: state.telemetry.legalCrossings + 1 },
+    };
+  }
+  if (outcome === 'violation') {
+    return {
+      ...state,
+      combo: 0,
+      violations: state.violations + 1,
+      // Bad action: the leash tightens, so the wall closes in and stays closer...
+      trailRows: Math.max(CONFIG.WALL_MIN_TRAIL_ROWS,
+        state.trailRows - CONFIG.WALL_SURGE_ROWS),
+      // ...and its idle creep gets permanently faster. Compounding; nothing in
+      // the run ever lowers this again.
+      wallSpeedMult: state.wallSpeedMult * (1 + CONFIG.JAYWALK_SPEED_PENALTY),
+      telemetry: { ...state.telemetry, violations: state.telemetry.violations + 1 },
+    };
+  }
+  return state;
+}
+
+function resolveCrossing(state, crossing) {
+  return applyOutcome(state, classifyCrossing(crossing));
+}
+
+/* ---- Crossing sequencer -------------------------------------------------
+   The whole "when does a crossing start, taint, or settle" question lives
+   here rather than in the game loop, so it is unit-testable. main.js only
+   feeds it cell transitions.
+   ------------------------------------------------------------------------- */
+const NO_CROSSING = { crossing: null, settled: false, outcome: null };
+
+function stepCrossing(current, prevBand, band, fromRow, row, col, elapsedMs) {
+  const { crossing, settled } = current;
+
+  // Left the band we were on: settle it if it was actually cleared.
+  if (crossing && (!band || band.index !== crossing.bandIndex)) {
+    const legal = !settled
+      && prevBand
+      && prevBand.index === crossing.bandIndex
+      && classifyCrossing(crossing) === 'legal'
+      && clearedForward(crossing, prevBand, row);
+    return { crossing: null, settled: false, outcome: legal ? 'legal' : null };
+  }
+
+  if (!band || band.type !== 'road') return NO_CROSSING;
+
+  // Stepped onto a road band from anywhere.
+  if (!crossing) {
+    const started = beginCrossing(band, col, elapsedMs, fromRow);
+    const bad = classifyCrossing(started) === 'violation';
+    return { crossing: started, settled: bad, outcome: bad ? 'violation' : null };
+  }
+
+  // Moving around inside the band. Already-settled crossings cannot be
+  // charged a second time.
+  if (settled) return { crossing, settled, outcome: null };
+
+  const tracked = trackCrossing(crossing, band, col);
+  const bad = classifyCrossing(tracked) === 'violation';
+  return { crossing: tracked, settled: bad, outcome: bad ? 'violation' : null };
+}
+
+/* ---- Wall physics (rubber-band chase) -----------------------------------
+   Two forces, and the tighter one always wins:
+     1. a constant creep forward, which is what kills a player who stands still
+     2. a hard leash: the wall can never lag more than WALL_TRAIL_ROWS behind,
+        so it is permanently on screen and permanently threatening
+   Keeping moving is therefore the whole defence — the wall matches your pace
+   for free, and only gains ground when you stop making it.
+   ------------------------------------------------------------------------- */
+function wallSpeed(state) {
+  return CONFIG.DIFFICULTY_TIERS[state.tierIndex].wallCreepSpeed * state.wallSpeedMult;
+}
+
+// The closest the wall is allowed to sit behind a player at this row, given
+// how much slack their play has earned or lost.
+function wallLeashRow(playerRow, state) {
+  const trail = state && typeof state.trailRows === 'number'
+    ? state.trailRows
+    : CONFIG.WALL_TRAIL_ROWS;
+  return playerRow - trail;
+}
+
+function stepWall(state, dtSec, playerRow) {
+  const crept = state.wallRow + wallSpeed(state) * dtSec;
+  // The leash only ever drags the wall FORWARD (toward the player). It must
+  // never haul it backwards, or sprinting would reset accumulated danger.
+  const leashed = playerRow === undefined
+    ? crept
+    : Math.max(crept, wallLeashRow(playerRow, state));
+  return { ...state, wallRow: leashed };
+}
+
+function isCaught(state, playerRow) {
+  return state.wallRow >= playerRow;
+}
+
+function feedbackLine(state) {
+  const bits = [];
+  bits.push(state.violations === 0
+    ? 'Clean run. You never jaywalked once.'
+    : `You jaywalked ${state.violations === 1 ? 'once' : `${state.violations} times`}.`);
+  const missed = state.telemetry.notificationsMissed;
+  if (missed > 0) bits.push(`You missed ${missed === 1 ? 'a message' : `${missed} messages`}.`);
+  const pct = Math.round((state.wallSpeedMult - 1) * 100);
+  if (pct > 0) bits.push(`The wall got ${pct}% faster.`);
+  return bits.join(' ');
+}
+
+/* ---- Tunnel vision cone --------------------------------------------------
+   How clearly the player can see a given cell, given where they are aiming.
+   1 = fully lit, 0 = completely hidden. Render-only: the simulation never
+   consults this, so anything you cannot see is still fully simulated and can
+   still hit you. That is the entire point of the mechanic.
+   ------------------------------------------------------------------------- */
+function coneVisibility(dCol, dRow, aimRad, radiusTiles) {
+  const dist = Math.hypot(dCol, dRow);
+  // Always-lit bubble so the player can see their own feet and neighbours.
+  if (dist <= CONFIG.CONE_NEAR_RADIUS_TILES) return 1;
+  if (dist > radiusTiles) return 0;
+
+  const half = (CONFIG.CONE_HALF_ANGLE_DEG * Math.PI) / 180;
+  const soft = (CONFIG.CONE_SOFT_EDGE_DEG * Math.PI) / 180;
+  // Smallest absolute angle between the cell and the aim direction.
+  let delta = Math.abs(Math.atan2(dRow, dCol) - aimRad) % (Math.PI * 2);
+  if (delta > Math.PI) delta = Math.PI * 2 - delta;
+
+  if (delta <= half) return 1;
+  if (delta >= half + soft) return 0;
+  return 1 - (delta - half) / soft;      // feathered edge, never a hard line
+}
+
+function isVisibleInCone(dCol, dRow, aimRad, radiusTiles) {
+  return coneVisibility(dCol, dRow, aimRad, radiusTiles) > 0;
+}
+
+// The cone tightens while a distraction is holding the player's attention.
+function coneRadiusFor(fogOfWarActive) {
+  return fogOfWarActive ? CONFIG.FOG_CONE_RADIUS_TILES : CONFIG.CONE_RADIUS_TILES;
+}
+
+/* ---- Phone distraction ---------------------------------------------------
+   A distraction event: { startMs, durationMs, kind, sender, requiresReply,
+   fogOfWar }. Timing/kind/sender/fogOfWar are generated here, deterministic
+   from the tier and world seed, same pattern as generateBands. Real message
+   text and options are attached by main.js from CONFIG.MESSAGE_POOLS when an
+   event goes live — resolveDistraction() only ever needs options[].correct,
+   so it stays testable with synthetic data, never real copy.
+   ------------------------------------------------------------------------- */
+// Kind and reaction window are one decision, not two: a call blocks longest, a
+// reply-required notification less, and a Young-tier toast least of all.
+// Keeping them together means the two can never drift out of step.
+function distractionTiming(isCall, repliesEnabled) {
+  if (isCall) return { kind: 'call', durationMs: CONFIG.CALL_DURATION_MS };
+  if (repliesEnabled) return { kind: 'notification', durationMs: CONFIG.NOTIFICATION_DURATION_MS };
+  return { kind: 'toast', durationMs: CONFIG.TOAST_DURATION_MS };
+}
+
+function distractionSchedule(tier, worldSeed) {
+  const d = tier.distraction;
+  if (!d || !d.everyMs) return [];
+
+  const rng = makeRng((worldSeed | 0) * 7 + 31);
+  const events = [];
+  let t = d.everyMs * (0.6 + rng() * 0.5);   // first event isn't instant
+
+  for (let i = 0; i < 400; i++) {
+    // Both rng() calls below are deliberately short-circuited: a tier without
+    // calls never draws for one, and a call never draws again for a reply.
+    // The draw order is what makes a seeded schedule reproducible.
+    const isCall = d.calls === true && rng() < 0.22;
+    const requiresReply = isCall || rng() < d.replyChance;
+    const { kind, durationMs } = distractionTiming(isCall, d.replyChance > 0);
+
+    events.push({
+      startMs: t,
+      durationMs,
+      kind,
+      sender: requiresReply ? d.sender : 'system',
+      requiresReply,
+      fogOfWar: d.fogOfWar === true && (isCall || rng() < 0.5),
+    });
+
+    t += d.everyMs * (0.7 + rng() * 0.6);
+  }
+  return events;
+}
+
+function activeDistraction(schedule, elapsedMs) {
+  for (const ev of schedule) {
+    if (elapsedMs >= ev.startMs && elapsedMs < ev.startMs + ev.durationMs) return ev;
+  }
+  return null;
+}
+
+// Pure reducer, same shape as resolveCrossing: (state, event, action) -> state.
+// action is 'dismissed', a numeric chosen-option index, or 'timedOut'.
+function resolveDistraction(state, event, action) {
+  const succeeded = event.kind === 'toast'
+    || action === 'dismissed'
+    || (typeof action === 'number' && event.options && event.options[action]
+        && event.options[action].correct === true);
+
+  if (succeeded) {
+    return {
+      ...state,
+      // Answering correctly is a good action: the wall gives ground by
+      // loosening its leash, exactly like a clean crossing does.
+      trailRows: Math.min(CONFIG.WALL_TRAIL_ROWS,
+        state.trailRows + CONFIG.WALL_PUSHBACK_TILES),
+      telemetry: {
+        ...state.telemetry,
+        notificationsSeen: state.telemetry.notificationsSeen + 1,
+        callsAnswered: state.telemetry.callsAnswered + (event.kind === 'call' ? 1 : 0),
+      },
+    };
+  }
+
+  const bossFail = event.kind === 'boss';
+  return {
+    ...state,
+    combo: bossFail ? 0 : state.combo,
+    // The leash tightens, but creep speed is untouched — the jaywalk penalty
+    // stays the only PERMANENT increase, so the two systems stay legible.
+    trailRows: Math.max(CONFIG.WALL_MIN_TRAIL_ROWS,
+      state.trailRows - CONFIG.DISTRACTION_LUNGE_ROWS),
+    telemetry: {
+      ...state.telemetry,
+      notificationsSeen: state.telemetry.notificationsSeen + 1,
+      notificationsMissed: state.telemetry.notificationsMissed + 1,
+      callsMissed: state.telemetry.callsMissed + (event.kind === 'call' ? 1 : 0),
+      bossEventsMissed: state.telemetry.bossEventsMissed + (bossFail ? 1 : 0),
+    },
+  };
+}
+
+// Boss-level events are triggered by distance, not elapsed time, so they sit
+// outside the schedule above. main.js owns the "next due row" counter; this
+// is the pure predicate it checks against.
+function isBossRowDue(row, nextBossRow, tier) {
+  return !!(tier.distraction && tier.distraction.bossEvents) && row >= nextBossRow;
+}
+
+/* ---- Obstacles (trees and roadside props) -------------------------------
+   Solid props on pavement rows, so the board cannot be walked in a straight
+   line. Two invariants make this safe to combine with a wall that paces you:
+
+     1. every band keeps one corridor column completely free, top to bottom
+     2. the columns leading to the next crossing are never blocked
+
+   Together those guarantee a route always exists. The player can be slowed
+   and forced to detour — which is the point — but never sealed in.
+   ------------------------------------------------------------------------- */
+const OBSTACLE_KINDS = ['tree', 'planter', 'bollard', 'binCorner'];
+
+// Props must never be able to seal a player in, which is a real risk once the
+// wall paces you. The generator guarantees it structurally rather than by
+// searching, using two layered rules per band:
+//
+//   1. the KERB row (the one touching the crossing ahead) is blocked only from
+//      the edges inward, so its clear columns are one contiguous span that
+//      always contains the crossing columns
+//   2. every row below it is blocked outside that same span, and may also be
+//      blocked INSIDE it — but never on the crossing columns
+//
+// So any cell a player can stand on is inside the span, and the same column in
+// the kerb row above is always clear: step up, then slide to the crossing.
+// That gives mid-board obstacles (rule 2) without ever trapping anyone.
+// A test proves it by breadth-first search rather than trusting this comment.
+function obstaclesForBand(band, zebraColAhead, rng, spawnCol) {
+  // Roads stay clear: props there would block the traffic simulation, and a
+  // pedestrian standing behind a bollard mid-carriageway teaches nothing.
+  if (band.type !== 'pavement') return [];
+
+  const hasZebra = zebraColAhead !== null && zebraColAhead !== undefined;
+  const mustLo = hasZebra ? zebraColAhead : Math.floor(CONFIG.GRID_COLS / 2);
+  const mustHi = hasZebra ? zebraColAhead + CONFIG.ZEBRA_WIDTH - 1 : mustLo;
+  const inZebra = (col) => hasZebra
+    && col >= zebraColAhead && col < zebraColAhead + CONFIG.ZEBRA_WIDTH;
+
+  // The contiguous clear span, biased to stay wide so the board still breathes.
+  let lo = rng() < 0.5 ? 0 : Math.min(mustLo, 1 + Math.floor(rng() * 2));
+  let hi = rng() < 0.5
+    ? CONFIG.GRID_COLS - 1
+    : Math.max(mustHi, CONFIG.GRID_COLS - 2 - Math.floor(rng() * 2));
+  if (spawnCol !== undefined && band.startRow === 0) {
+    lo = Math.min(lo, spawnCol);
+    hi = Math.max(hi, spawnCol);
+  }
+
+  const kerbRow = band.startRow + band.rows - 1;
+  const out = [];
+  for (let i = 0; i < band.rows; i++) {
+    const row = band.startRow + i;
+    for (let col = 0; col < CONFIG.GRID_COLS; col++) {
+      if (inZebra(col)) continue;                    // crossing approach always clear
+      const outsideSpan = col < lo || col > hi;
+      const blocked = outsideSpan
+        || (row !== kerbRow && rng() < CONFIG.OBSTACLE_CHANCE);
+      if (!blocked) continue;
+      out.push({ row, col, kind: OBSTACLE_KINDS[Math.floor(rng() * OBSTACLE_KINDS.length)] });
+    }
+  }
+  return out;
+}
+
+function isBlocked(obstacles, row, col) {
+  for (const o of obstacles) if (o.row === row && o.col === col) return true;
+  return false;
+}
+
+/* ---- Message option order ------------------------------------------------
+   The correct reply must not always sit in the same slot, or the game becomes
+   a muscle-memory tap rather than a reading test. Seeded so it stays pure.
+   ------------------------------------------------------------------------- */
+function shuffledOptions(options, rng) {
+  const out = options.slice();
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
+
+/* ---- Traffic ------------------------------------------------------------ */
+// Car = { row, x (columns, float), dir, speed, curSpeed, len, color }
+// The single line every car in the band must halt behind.
+function stopLineFor(car, band) {
+  return car.dir === 1
+    ? band.zebraCol - CONFIG.CAR_STOP_GAP
+    : band.zebraCol + CONFIG.ZEBRA_WIDTH - 1 + CONFIG.CAR_STOP_GAP;
+}
+
+function carTargetSpeed(car, band, elapsedMs) {
+  if (band.type !== 'road') return car.speed;
+  if (!signalStopsTraffic(elapsedMs, band.seed)) return car.speed;
+
+  const dist = (stopLineFor(car, band) - car.x) * car.dir;
+  if (dist <= 0) return car.speed;      // already in the crossing, drive on and clear
+
+  // Brake only if the car can physically still stop short of the line. One
+  // that cannot is committed, and the clearance interval gives it time to
+  // get clear before anyone is given a green man.
+  const stoppingDist = (car.curSpeed * car.curSpeed) / (2 * CONFIG.CAR_DECEL);
+  return dist >= stoppingDist ? 0 : car.speed;
+}
+
+// The nearest car ahead in the same lane: clear gap to it, and its speed.
+function leaderAhead(car, cars) {
+  let gap = Infinity;
+  let speed = Infinity;
+  let leader = null;
+  for (const other of cars) {
+    if (other === car || other.row !== car.row) continue;
+    const ahead = (other.x - car.x) * car.dir;
+    if (ahead <= 0) continue;
+    const clear = ahead - (car.len + other.len) / 2;
+    if (clear < gap) { gap = clear; speed = other.curSpeed; leader = other; }
+  }
+  return { gap, speed, leader };
+}
+
+// A car coming back around must join the back of its lane, not materialise on
+// top of whatever is queued at the crossing.
+function reenterBehindQueue(car, cars, x) {
+  let rear = null;
+  for (const other of cars) {
+    if (other === car || other.row !== car.row) continue;
+    if (rear === null || (other.x - rear.x) * car.dir < 0) rear = other;
+  }
+  if (!rear) return x;
+  const limit = rear.x - car.dir * ((car.len + rear.len) / 2 + CONFIG.CAR_FOLLOW_GAP);
+  return (x - limit) * car.dir > 0 ? limit : x;
+}
+
+function stepCars(cars, band, dtSec, elapsedMs) {
+  const span = CONFIG.GRID_COLS + CONFIG.CAR_WRAP_MARGIN * 2;
+  return cars.map((car) => {
+    // A car is held by whichever comes first: the signal, or the car ahead.
+    // Following distance has to cover the braking needed to shed the closing
+    // speed, or the follower rear-ends the leader instead of queueing.
+    const lead = leaderAhead(car, cars);
+    const closing = car.curSpeed - lead.speed;
+    const brakingRoom = closing > 0 ? (closing * closing) / (2 * CONFIG.CAR_DECEL) : 0;
+    let target = carTargetSpeed(car, band, elapsedMs);
+    if (lead.gap < brakingRoom + CONFIG.CAR_FOLLOW_GAP) target = Math.min(target, lead.speed);
+    const braking = target < car.curSpeed;
+    const step = (braking ? CONFIG.CAR_DECEL : CONFIG.CAR_ACCEL) * dtSec;
+    const curSpeed = braking
+      ? Math.max(target, car.curSpeed - step)
+      : Math.min(target, car.curSpeed + step);
+
+    let x = car.x + car.dir * curSpeed * dtSec;
+
+    // Following easing is discrete, so it can still creep a few centimetres
+    // into the car ahead. Bumpers are a hard floor.
+    if (lead.leader) {
+      const bumper = lead.leader.x - car.dir * ((car.len + lead.leader.len) / 2);
+      if ((x - bumper) * car.dir > 0) x = bumper;
+    }
+
+    // Wrap only off the edge the car is actually driving towards, so a car
+    // repositioned behind a queue is never wrapped straight back again.
+    if (car.dir === 1 && x > CONFIG.GRID_COLS + CONFIG.CAR_WRAP_MARGIN) {
+      x = reenterBehindQueue(car, cars, x - span);
+    } else if (car.dir === -1 && x < -CONFIG.CAR_WRAP_MARGIN) {
+      x = reenterBehindQueue(car, cars, x + span);
+    }
+
+    return { ...car, curSpeed, x };
+  });
+}
+
+function carHitsPlayer(car, playerRow, playerColFloat) {
+  if (car.row !== playerRow) return false;
+  const half = car.len / 2 + CONFIG.PLAYER_HIT_PAD;
+  return playerColFloat >= car.x - half && playerColFloat <= car.x + half;
+}
+
+const CAR_COLORS = ['#E5533D', '#3E8BD8', '#F2B33D', '#EDE4CE', '#3FA88F', '#B9564C'];
+const NEUTRAL_TRAFFIC = { trafficDensityMult: 1, trafficSpeedMult: 1 };
+
+// tier is optional and defaults to a 1x/1x neutral profile, so every existing
+// call site (and every existing test) is unaffected unless it opts in.
+function spawnCarsForBand(band, rng, tier = NEUTRAL_TRAFFIC) {
+  if (band.type !== 'road') return [];
+  const cars = [];
+  const span = CONFIG.GRID_COLS + CONFIG.CAR_WRAP_MARGIN * 2;
+  const perLane = Math.max(1, Math.round(CONFIG.CARS_PER_LANE * (tier.trafficDensityMult || 1)));
+  const speedMult = tier.trafficSpeedMult || 1;
+
+  band.lanes.forEach((lane, i) => {
+    const start = rng() * span;
+    for (let q = 0; q < perLane; q++) {
+      let x = ((start + (q * span) / perLane) % span) - CONFIG.CAR_WRAP_MARGIN;
+      const len = lerp(CONFIG.CAR_LEN_MIN, CONFIG.CAR_LEN_MAX, rng());
+      // A car must never begin the run sitting on the crossing.
+      const pad = len / 2 + CONFIG.PLAYER_HIT_PAD;
+      const lo = band.zebraCol - pad;
+      const hi = band.zebraCol + CONFIG.ZEBRA_WIDTH - 1 + pad;
+      if (x > lo && x < hi) x = hi + 0.25;
+      cars.push({
+        row: band.startRow + i,
+        x,
+        dir: lane.dir,
+        speed: lane.speed * speedMult,
+        curSpeed: lane.speed * speedMult,
+        len,
+        color: CAR_COLORS[Math.floor(rng() * CAR_COLORS.length)],
+      });
+    }
+  });
+  return cars;
+}
+
+/* ---- Telegraphed hazard car ----------------------------------------------
+   Not a car object — a periodic, whole-lane sweep that ignores the signal
+   entirely. Rolled once per band (kept out of buildBand/generateBands so
+   band layout stays fully tier-agnostic and every existing band test is
+   unaffected); phase is a pure function of elapsed time, same pattern as the
+   pedestrian signal.
+   ------------------------------------------------------------------------- */
+function hazardForBand(band, tier, rng) {
+  if (band.type !== 'road' || !tier.hazardCarChance) return null;
+  if (rng() >= tier.hazardCarChance) return null;
+  return { laneOffset: Math.floor(rng() * band.rows) };
+}
+
+function hazardCyclePos(band, elapsedMs) {
+  const cycleMs = CONFIG.HAZARD_CYCLE_MS;
+  return cyclePos(elapsedMs, (band.seed * 653) % cycleMs, cycleMs);
+}
+
+function hazardPhase(band, hazard, elapsedMs) {
+  if (!hazard) return 'none';
+  const pos = hazardCyclePos(band, elapsedMs);
+  const cycleMs = CONFIG.HAZARD_CYCLE_MS;
+  const sweepStart = cycleMs - CONFIG.HAZARD_SWEEP_MS;
+  const warnStart = sweepStart - CONFIG.HAZARD_CAR_WARN_MS;
+  if (pos >= sweepStart) return 'sweeping';
+  if (pos >= warnStart) return 'warning';
+  return 'none';
+}
+
+function hazardHitsPlayer(band, hazard, elapsedMs, playerRow) {
+  if (!hazard) return false;
+  if (hazardPhase(band, hazard, elapsedMs) !== 'sweeping') return false;
+  return playerRow === band.startRow + hazard.laneOffset;
+}
+
+/* =========================================================================
+   render.js — all canvas drawing. No game rules live here.
+   Visual system is specified in REFERENCE.md; every colour below traces
+   back to that document. Fog (look-fog, distraction fog-of-war, tunnel
+   vision) is drawn here and ONLY here — rules.js always simulates real
+   positions underneath, so nothing drawn in this file can affect fairness.
+   ========================================================================= */
+
+
+const PALETTE = {
+  // Spy Mouse chrome
+  greenMid: '#5E9B31', greenLift: '#7FC04A', greenEdge: '#3F6D22',
+  boardBase: '#EDD9A3', boardHi: '#F7E9C4', boardLo: '#D8BE81',
+  boardShadow: 'rgba(28, 48, 12, 0.42)',
+  badgeTop: '#4A3823', badgeBot: '#2B2015',
+  goldHi: '#E9BC4E', goldLo: '#A8762A',
+  badgeText: '#FFF3D2',
+  // Crossy Road playfield
+  grassA: '#8CC63E', grassB: '#79B032',
+  asphalt: '#4A4A54', asphaltEdge: '#3A3A44',
+  kerb: '#CFC7B0', lane: '#F2EFE2', zebra: '#FAF7EC',
+  glass: '#2A3340',
+  signalGreen: '#57C947', signalRed: '#E03B36',
+  wall: '#241C2E', wallEdge: '#4A2F5E',
+  hazard: '#E5533D', warnTri: '#F2B33D',
+  // Singapore streetscape
+  hdbWall: '#E8E2D4', hdbShade: '#CFC6B2', hdbRoof: '#B8532F',
+  voidDeck: '#D8D2C2', walkwayRoof: '#7FA4B8', walkwayPost: '#E8E2D4',
+  treeCanopy: '#4E8C3A', treeCanopyLit: '#6FAE4C', treeTrunk: '#6B4A2E',
+  planter: '#B85C3C', bollard: '#D9D3C4', busStop: '#3E7FA8',
+  yellowBox: '#E9C44E',
+};
+
+const FONT = "'Arial Rounded MT Bold', 'Baloo 2', 'Nunito', 'Trebuchet MS', system-ui, sans-serif";
+
+const VIEW_ROWS = 30;      // band culling window; the drawn count is adaptive
+const BOARD_W = CONFIG.GRID_COLS * CONFIG.TILE;
+const MIN_ROWS = 12;              // never show fewer than this many rows
+const MAX_ROWS = 22;              // nor more, or tiles get too small to read
+const DEPTH = 4;                  // px of extruded thickness
+
+/* ---- primitives --------------------------------------------------------- */
+// Lays down the path only. Callers decide whether to fill, stroke or clip it.
+function roundRectPath(ctx, x, y, w, h, r) {
+  const rad = Math.min(r, w / 2, h / 2);
+  ctx.beginPath();
+  if (ctx.roundRect) ctx.roundRect(x, y, w, h, rad);
+  else {
+    ctx.moveTo(x + rad, y);
+    ctx.arcTo(x + w, y, x + w, y + h, rad);
+    ctx.arcTo(x + w, y + h, x, y + h, rad);
+    ctx.arcTo(x, y + h, x, y, rad);
+    ctx.arcTo(x, y, x + w, y, rad);
+    ctx.closePath();
+  }
+}
+
+function fillRoundRect(ctx, x, y, w, h, r, color) {
+  ctx.fillStyle = color;
+  roundRectPath(ctx, x, y, w, h, r);
+  ctx.fill();
+}
+
+// Path only, same contract as roundRectPath — fill it, or clip to it.
+function circlePath(ctx, cx, cy, r) {
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+}
+
+function fillCircle(ctx, cx, cy, r, color) {
+  ctx.fillStyle = color;
+  circlePath(ctx, cx, cy, r);
+  ctx.fill();
+}
+
+// Top-to-bottom two-stop gradient — the shading every chrome piece is built on.
+function vGradient(ctx, yTop, yBottom, from, to) {
+  const g = ctx.createLinearGradient(0, yTop, 0, yBottom);
+  g.addColorStop(0, from);
+  g.addColorStop(1, to);
+  return g;
+}
+
+function darken(hex, amount) {
+  const n = parseInt(hex.slice(1), 16);
+  const r = Math.round(((n >> 16) & 255) * (1 - amount));
+  const g = Math.round(((n >> 8) & 255) * (1 - amount));
+  const b = Math.round((n & 255) * (1 - amount));
+  return `rgb(${r},${g},${b})`;
+}
+
+// REFERENCE.md §3a — offset darker copy beneath the object gives it thickness.
+function depthRect(ctx, x, y, w, h, r, color, depth = DEPTH) {
+  fillRoundRect(ctx, x, y + depth, w, h, r, darken(color, 0.28));
+  fillRoundRect(ctx, x, y, w, h, r, color);
+}
+
+// REFERENCE.md §3b — soft elliptical contact shadow anchors the object.
+function contactShadow(ctx, cx, cy, rx, ry, alpha = 0.22) {
+  const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.max(rx, ry));
+  g.addColorStop(0, `rgba(0,0,0,${alpha})`);
+  g.addColorStop(0.6, `rgba(0,0,0,${alpha * 0.5})`);
+  g.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.scale(1, ry / Math.max(rx, 0.001));
+  ctx.fillStyle = g;
+  circlePath(ctx, 0, 0, Math.max(rx, ry));
+  ctx.fill();
+  ctx.restore();
+}
+
+// REFERENCE.md §3c — glossy highlight on the upper third only.
+function gloss(ctx, x, y, w, h, r, strength = 0.38) {
+  ctx.save();
+  roundRectPath(ctx, x, y, w, h, r);
+  ctx.clip();
+  ctx.fillStyle = vGradient(ctx, y, y + h * 0.55,
+    `rgba(255,255,255,${strength})`, 'rgba(255,255,255,0)');
+  ctx.fillRect(x, y, w, h * 0.55);
+  ctx.restore();
+}
+
+function chunkyText(ctx, text, x, y, size, color, align = 'center') {
+  ctx.font = `${size}px ${FONT}`;
+  ctx.textAlign = align;
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = 'rgba(40,26,10,0.55)';
+  ctx.fillText(text, x, y + Math.max(1, size * 0.07));
+  ctx.fillStyle = color;
+  ctx.fillText(text, x, y);
+}
+
+function wrapText(ctx, text, maxWidth) {
+  const words = text.split(' ');
+  const lines = [];
+  let line = '';
+  for (const word of words) {
+    const test = line ? `${line} ${word}` : word;
+    if (ctx.measureText(test).width > maxWidth && line) {
+      lines.push(line);
+      line = word;
+    } else {
+      line = test;
+    }
+  }
+  if (line) lines.push(line);
+  return lines;
+}
+
+/* ---- canvas setup ------------------------------------------------------- */
+function setupCanvas(canvas) {
+  const ctx = canvas.getContext('2d');
+  const resize = () => {
+    const dpr = window.devicePixelRatio || 1;
+    const w = canvas.clientWidth;
+    const h = canvas.clientHeight;
+    canvas.width = Math.round(w * dpr);
+    canvas.height = Math.round(h * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  };
+  resize();
+  window.addEventListener('resize', resize);
+  return { ctx, resize };
+}
+
+function boardLayout(viewW, viewH) {
+  const topPad = Math.max(58, viewH * 0.085);       // room for the HUD pills
+  const avail = viewH - topPad - viewH * 0.03;
+  const scale = Math.min((viewW * 0.94) / BOARD_W, avail / (MIN_ROWS * CONFIG.TILE));
+  const rows = Math.max(MIN_ROWS, Math.min(MAX_ROWS,
+    Math.floor(avail / (CONFIG.TILE * scale))));
+  const w = BOARD_W * scale;
+  const h = rows * CONFIG.TILE * scale;
+  return { scale, rows, w, h, x: (viewW - w) / 2, y: topPad + (avail - h) / 2 };
+}
+
+/* ---- pill badge (Spy Mouse top bar) ------------------------------------- */
+function pill(ctx, x, y, w, h, label, value) {
+  const r = h / 2;
+  contactShadow(ctx, x + w / 2, y + h + 3, w / 2, 6, 0.3);
+
+  fillRoundRect(ctx, x, y + 2, w, h, r, PALETTE.goldLo);
+  fillRoundRect(ctx, x, y, w, h, r,
+    vGradient(ctx, y, y + h, PALETTE.goldHi, PALETTE.goldLo));
+  fillRoundRect(ctx, x + 3, y + 3, w - 6, h - 6, r - 3,
+    vGradient(ctx, y + 3, y + h - 3, PALETTE.badgeTop, PALETTE.badgeBot));
+
+  gloss(ctx, x + 3, y + 3, w - 6, (h - 6) * 0.5, r - 3, 0.22);
+
+  const cy = y + h / 2;
+  chunkyText(ctx, label, x + w / 2, cy - h * 0.16, h * 0.24, 'rgba(255,243,210,0.62)');
+  chunkyText(ctx, value, x + w / 2, cy + h * 0.16, h * 0.4, PALETTE.badgeText);
+}
+
+function pauseButton(ctx, cx, cy, r, paused) {
+  contactShadow(ctx, cx, cy + r + 2, r, 5, 0.3);
+  fillCircle(ctx, cx, cy, r, vGradient(ctx, cy - r, cy + r, PALETTE.goldHi, PALETTE.goldLo));
+  fillCircle(ctx, cx, cy, r - 3,
+    vGradient(ctx, cy - r, cy + r, PALETTE.badgeTop, PALETTE.badgeBot));
+
+  ctx.save();
+  circlePath(ctx, cx, cy, r - 3);
+  ctx.clip();
+  ctx.fillStyle = vGradient(ctx, cy - r, cy,
+    'rgba(255,255,255,0.26)', 'rgba(255,255,255,0)');
+  ctx.fillRect(cx - r, cy - r, r * 2, r);
+  ctx.restore();
+
+  if (paused) {
+    ctx.fillStyle = PALETTE.badgeText;
+    ctx.beginPath();
+    ctx.moveTo(cx - r * 0.24, cy - r * 0.34);
+    ctx.lineTo(cx + r * 0.4, cy);
+    ctx.lineTo(cx - r * 0.24, cy + r * 0.34);
+    ctx.closePath(); ctx.fill();
+  } else {
+    fillRoundRect(ctx, cx - r * 0.32, cy - r * 0.34, r * 0.22, r * 0.68, r * 0.09, PALETTE.badgeText);
+    fillRoundRect(ctx, cx + r * 0.1, cy - r * 0.34, r * 0.22, r * 0.68, r * 0.09, PALETTE.badgeText);
+  }
+}
+
+/* ---- warning triangle (telegraphed hazard car) --------------------------- */
+function drawWarningTriangle(ctx, cx, cy, size, pulse) {
+  ctx.save();
+  ctx.globalAlpha = 0.6 + 0.35 * pulse;
+  ctx.fillStyle = PALETTE.warnTri;
+  ctx.strokeStyle = PALETTE.badgeBot;
+  ctx.lineWidth = Math.max(1.5, size * 0.06);
+  ctx.beginPath();
+  ctx.moveTo(cx, cy - size * 0.52);
+  ctx.lineTo(cx + size * 0.46, cy + size * 0.36);
+  ctx.lineTo(cx - size * 0.46, cy + size * 0.36);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = PALETTE.badgeBot;
+  ctx.fillRect(cx - size * 0.04, cy - size * 0.2, size * 0.08, size * 0.24);
+  fillCircle(ctx, cx, cy + size * 0.16, size * 0.05, PALETTE.badgeBot);
+  ctx.restore();
+}
+
+/* ---- world pieces ------------------------------------------------------- */
+function drawCar(ctx, car, x, y, tile) {
+  const w = car.len * tile;
+  const h = tile * 0.74;
+  const px = x - w / 2;
+  const py = y - h / 2;
+  const r = tile * 0.16;
+
+  contactShadow(ctx, x, y + h * 0.46, w * 0.58, h * 0.3, 0.26);
+  depthRect(ctx, px, py, w, h, r, car.color, Math.max(3, tile * 0.09));
+
+  const roofW = w * 0.46;
+  fillRoundRect(ctx, x - roofW / 2, py + h * 0.16, roofW, h * 0.68, r * 0.7,
+    'rgba(255,255,255,0.24)');
+
+  const sw = w * 0.1;
+  fillRoundRect(ctx, x - roofW / 2 - sw * 1.15, py + h * 0.2, sw, h * 0.6, r * 0.5, PALETTE.glass);
+  fillRoundRect(ctx, x + roofW / 2 + sw * 0.15, py + h * 0.2, sw, h * 0.6, r * 0.5, PALETTE.glass);
+
+  if (car.curSpeed < car.speed * 0.6) {
+    const bx = car.dir === 1 ? px + w * 0.03 : px + w * 0.93;
+    fillRoundRect(ctx, bx, py + h * 0.16, w * 0.045, h * 0.68, 2, 'rgba(255,72,48,0.92)');
+  }
+
+  gloss(ctx, px, py, w, h, r, 0.34);
+}
+
+// Skeuomorphic kerbside signal: a moulded housing on a post, a recessed
+// hood over a domed glass lens, a lit filament behind the figure, and a
+// countdown bar. Drawn flat on the pavement tile, so the player can walk
+// over it -- nothing here blocks movement.
+function drawSignal(ctx, band, x, y, tile, elapsedMs) {
+  const phase = signalPhase(elapsedMs, band.seed);
+  const on = phase === 'green' ? PALETTE.signalGreen : PALETTE.signalRed;
+  const w = tile * 0.66;
+  const h = tile * 0.84;
+  const px = x - w / 2;
+  const py = y - h / 2;
+  const r = tile * 0.15;
+
+  contactShadow(ctx, x, y + h * 0.52, w * 0.62, tile * 0.15, 0.32);
+
+  // post plate under the housing
+  fillRoundRect(ctx, x - w * 0.16, py + h * 0.72, w * 0.32, h * 0.3, tile * 0.05, '#5A5148');
+  fillRoundRect(ctx, x - w * 0.22, py + h * 0.94, w * 0.44, h * 0.12, tile * 0.05, '#6E6459');
+
+  // housing: dark moulded body with a lighter bevel
+  depthRect(ctx, px, py, w, h * 0.8, r, '#2B2015', Math.max(3, tile * 0.09));
+  fillRoundRect(ctx, px + w * 0.06, py + h * 0.04, w * 0.88, h * 0.72, r * 0.85,
+    vGradient(ctx, py, py + h * 0.76, '#4A3823', '#231A11'));
+
+  // recessed hood
+  fillRoundRect(ctx, px + w * 0.08, py + h * 0.02, w * 0.84, h * 0.12, r * 0.5,
+    'rgba(0,0,0,0.45)');
+
+  // lens: dark well, glow halo, then the domed glass
+  const lx = px + w * 0.16;
+  const ly = py + h * 0.14;
+  const lw = w * 0.68;
+  const lh = h * 0.5;
+  fillRoundRect(ctx, lx - 1, ly - 1, lw + 2, lh + 2, r * 0.7, '#12100C');
+
+  const halo = ctx.createRadialGradient(x, ly + lh / 2, 1, x, ly + lh / 2, lw * 0.9);
+  halo.addColorStop(0, on);
+  halo.addColorStop(0.55, darken(on, 0.35));
+  halo.addColorStop(1, darken(on, 0.72));
+  fillRoundRect(ctx, lx, ly, lw, lh, r * 0.65, halo);
+
+  // pedestrian figure
+  const FIGURE = 'rgba(12,10,7,0.88)';
+  const fx = x;
+  const fy = ly + lh * 0.52;
+  fillCircle(ctx, fx, fy - lh * 0.26, lw * 0.13, FIGURE);
+  if (phase === 'green') {
+    ctx.lineWidth = Math.max(1.6, lw * 0.13);
+    ctx.strokeStyle = FIGURE;
+    ctx.lineCap = 'round';
+    ctx.beginPath();                                   // striding legs
+    ctx.moveTo(fx - lw * 0.16, fy + lh * 0.3);
+    ctx.lineTo(fx + lw * 0.02, fy);
+    ctx.lineTo(fx + lw * 0.18, fy + lh * 0.3);
+    ctx.stroke();
+    ctx.beginPath();                                   // swinging arm
+    ctx.moveTo(fx - lw * 0.14, fy - lh * 0.02);
+    ctx.lineTo(fx + lw * 0.14, fy - lh * 0.1);
+    ctx.stroke();
+  } else {
+    fillRoundRect(ctx, fx - lw * 0.10, fy - lh * 0.14, lw * 0.20, lh * 0.34, lw * 0.07, FIGURE);
+    ctx.lineWidth = Math.max(1.4, lw * 0.1);
+    ctx.strokeStyle = FIGURE;
+    ctx.lineCap = 'round';
+    ctx.beginPath();                                   // arms down, standing
+    ctx.moveTo(fx - lw * 0.17, fy + lh * 0.04);
+    ctx.lineTo(fx - lw * 0.10, fy + lh * 0.2);
+    ctx.moveTo(fx + lw * 0.17, fy + lh * 0.04);
+    ctx.lineTo(fx + lw * 0.10, fy + lh * 0.2);
+    ctx.stroke();
+  }
+
+  // curved glass highlight across the top of the lens
+  ctx.save();
+  roundRectPath(ctx, lx, ly, lw, lh, r * 0.65);
+  ctx.clip();
+  ctx.fillStyle = vGradient(ctx, ly, ly + lh * 0.5,
+    'rgba(255,255,255,0.34)', 'rgba(255,255,255,0)');
+  ctx.fillRect(lx, ly, lw, lh * 0.5);
+  ctx.restore();
+
+  // countdown bar draining through the current phase
+  const p = signalPhaseProgress(elapsedMs, band.seed);
+  const barX = px + w * 0.16;
+  const barY = py + h * 0.68;
+  const barW = w * 0.68;
+  fillRoundRect(ctx, barX, barY, barW, tile * 0.055, tile * 0.03, 'rgba(0,0,0,0.55)');
+  fillRoundRect(ctx, barX, barY, barW * (1 - p), tile * 0.055, tile * 0.03,
+    phase === 'green' ? PALETTE.signalGreen : PALETTE.signalRed);
+
+  gloss(ctx, px, py, w, h * 0.4, r, 0.24);
+}
+
+// Three Singapore archetypes, told apart by silhouette and props rather than
+// colour alone: JC student (uniform + backpack), poly student (blue hair +
+// earphones), office worker (lanyard + coffee).
+function drawPlayer(ctx, tier, x, y, tile, lift) {
+  const c = tier.colors;
+  const w = tile * 0.6;
+  const h = tile * 0.62;
+  const py = y - h / 2 - lift;
+
+  contactShadow(ctx, x, y + tile * 0.24, w * 0.62, tile * 0.15, 0.3 - lift * 0.004);
+
+  // backpack sits behind the body for the student
+  if (tier.look === 'student') {
+    fillRoundRect(ctx, x - w * 0.34, py + h * 0.16, w * 0.68, h * 0.6, tile * 0.14, '#2C3E70');
+  }
+
+  depthRect(ctx, x - w / 2, py, w, h, tile * 0.2, c.body, Math.max(3, tile * 0.1));
+  fillRoundRect(ctx, x - w / 2 + w * 0.14, py + h * 0.52, w * 0.72, h * 0.34, tile * 0.1, c.trim);
+
+  if (tier.look === 'office') {
+    // lanyard: two straps to a badge on the chest
+    ctx.strokeStyle = '#1E4C7A';
+    ctx.lineWidth = Math.max(1.2, w * 0.06);
+    ctx.beginPath();
+    ctx.moveTo(x - w * 0.16, py + h * 0.18);
+    ctx.lineTo(x, py + h * 0.46);
+    ctx.moveTo(x + w * 0.16, py + h * 0.18);
+    ctx.lineTo(x, py + h * 0.46);
+    ctx.stroke();
+    fillRoundRect(ctx, x - w * 0.09, py + h * 0.44, w * 0.18, h * 0.18, tile * 0.03, '#F4F1E8');
+    // coffee cup in hand
+    fillRoundRect(ctx, x + w * 0.34, py + h * 0.34, w * 0.17, h * 0.26, tile * 0.03, '#F4F1E8');
+    fillRoundRect(ctx, x + w * 0.33, py + h * 0.32, w * 0.19, h * 0.07, tile * 0.02, '#B8532F');
+  }
+
+  if (tier.look === 'student') {
+    // uniform collar
+    ctx.strokeStyle = '#2C3E70';
+    ctx.lineWidth = Math.max(1.2, w * 0.055);
+    ctx.beginPath();
+    ctx.moveTo(x - w * 0.14, py + h * 0.14);
+    ctx.lineTo(x, py + h * 0.3);
+    ctx.lineTo(x + w * 0.14, py + h * 0.14);
+    ctx.stroke();
+  }
+
+  // head, over an offset darker copy that reads as its underside
+  const headCx = x;
+  const headCy = py + h * 0.3;
+  const headR = w * 0.3;
+  fillCircle(ctx, headCx, headCy + 2, headR, darken(c.head, 0.3));
+  fillCircle(ctx, headCx, headCy, headR, c.head);
+
+  // hair cap, clipped to the top of the head circle
+  ctx.save();
+  circlePath(ctx, headCx, headCy, headR);
+  ctx.clip();
+  ctx.fillStyle = c.hair;
+  ctx.fillRect(headCx - headR * 1.05, headCy - headR * 1.05, headR * 2.1,
+    tier.look === 'poly' ? headR * 1.15 : headR * 0.95);
+  ctx.restore();
+
+  if (tier.look === 'poly') {
+    // earphone buds either side of the head
+    fillCircle(ctx, headCx - headR * 0.95, headCy + headR * 0.1, headR * 0.24, '#F4F1E8');
+    fillCircle(ctx, headCx + headR * 0.95, headCy + headR * 0.1, headR * 0.24, '#F4F1E8');
+  }
+
+  fillRoundRect(ctx, x - w * 0.1, py - h * 0.02, w * 0.2, h * 0.16, tile * 0.05, c.accent);
+  gloss(ctx, x - w / 2, py, w, h, tile * 0.2, 0.32);
+}
+
+/* ---- Singapore streetscape props ---------------------------------------- */
+function drawObstacle(ctx, obstacle, x, y, tile) {
+  const cy = y + tile / 2;
+  contactShadow(ctx, x, cy + tile * 0.26, tile * 0.3, tile * 0.1, 0.3);
+
+  if (obstacle.kind === 'tree') {
+    // angsana/rain tree: trunk plus a layered canopy
+    fillRoundRect(ctx, x - tile * 0.055, cy - tile * 0.02, tile * 0.11, tile * 0.3,
+      tile * 0.03, PALETTE.treeTrunk);
+    fillCircle(ctx, x, cy - tile * 0.1, tile * 0.3, darken(PALETTE.treeCanopy, 0.3));
+    fillCircle(ctx, x - tile * 0.12, cy - tile * 0.16, tile * 0.21, PALETTE.treeCanopy);
+    fillCircle(ctx, x + tile * 0.13, cy - tile * 0.14, tile * 0.19, PALETTE.treeCanopy);
+    fillCircle(ctx, x - tile * 0.02, cy - tile * 0.26, tile * 0.18, PALETTE.treeCanopyLit);
+    return;
+  }
+  if (obstacle.kind === 'planter') {
+    depthRect(ctx, x - tile * 0.26, cy - tile * 0.14, tile * 0.52, tile * 0.34,
+      tile * 0.06, PALETTE.planter, 3);
+    fillCircle(ctx, x - tile * 0.1, cy - tile * 0.2, tile * 0.13, PALETTE.treeCanopy);
+    fillCircle(ctx, x + tile * 0.1, cy - tile * 0.19, tile * 0.12, PALETTE.treeCanopyLit);
+    gloss(ctx, x - tile * 0.26, cy - tile * 0.14, tile * 0.52, tile * 0.18, tile * 0.06, 0.3);
+    return;
+  }
+  if (obstacle.kind === 'bollard') {
+    depthRect(ctx, x - tile * 0.09, cy - tile * 0.24, tile * 0.18, tile * 0.5,
+      tile * 0.08, PALETTE.bollard, 3);
+    ctx.fillStyle = 'rgba(224,59,54,0.85)';
+    ctx.fillRect(x - tile * 0.09, cy - tile * 0.06, tile * 0.18, tile * 0.09);
+    gloss(ctx, x - tile * 0.09, cy - tile * 0.24, tile * 0.18, tile * 0.26, tile * 0.08, 0.34);
+    return;
+  }
+  // binCorner: the ubiquitous green municipal bin
+  depthRect(ctx, x - tile * 0.2, cy - tile * 0.2, tile * 0.4, tile * 0.46,
+    tile * 0.06, '#3F7A3A', 3);
+  fillRoundRect(ctx, x - tile * 0.23, cy - tile * 0.25, tile * 0.46, tile * 0.1,
+    tile * 0.04, '#2E5C2B');
+  gloss(ctx, x - tile * 0.2, cy - tile * 0.2, tile * 0.4, tile * 0.22, tile * 0.06, 0.3);
+}
+
+// HDB blocks running down the verges OUTSIDE the board, in viewport space.
+// Deliberately not inside the clip: the board is exactly GRID_COLS wide, so
+// anything drawn in there would cover a playable column.
+function drawStreetscape(ctx, layout, tile, cameraRow) {
+  const margin = Math.min(layout.x, tile * 2.4);
+  if (margin < tile * 0.5) return;          // no room on a narrow screen
+  const drift = ((cameraRow * tile) % (tile * 6));
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(0, layout.y, layout.x, layout.h);
+  ctx.rect(layout.x + layout.w, layout.y, layout.x, layout.h);
+  ctx.clip();
+  ctx.globalAlpha = 0.55;
+  for (const side of [0, 1]) {
+    const bandW = margin * 0.82;
+    const x = side === 0
+      ? layout.x - margin * 0.92
+      : layout.x + layout.w + margin * 0.1;
+    for (let i = -1; i < layout.h / (tile * 6) + 2; i++) {
+      const y = layout.y + i * tile * 6 + drift - tile * 3;
+      // block face
+      fillRoundRect(ctx, x, y, bandW, tile * 4.4, tile * 0.12, PALETTE.hdbWall);
+      fillRoundRect(ctx, x, y, bandW * 0.32, tile * 4.4, tile * 0.12, PALETTE.hdbShade);
+      fillRoundRect(ctx, x - tile * 0.05, y, bandW + tile * 0.1, tile * 0.3,
+        tile * 0.06, PALETTE.hdbRoof);
+      // windows
+      ctx.fillStyle = 'rgba(60,74,92,0.55)';
+      for (let r2 = 0; r2 < 5; r2++) {
+        for (let c2 = 0; c2 < 2; c2++) {
+          ctx.fillRect(x + bandW * (0.22 + c2 * 0.36), y + tile * (0.55 + r2 * 0.78),
+            bandW * 0.22, tile * 0.4);
+        }
+      }
+      // void deck at the base
+      fillRoundRect(ctx, x, y + tile * 4.4, bandW, tile * 0.7, tile * 0.06, PALETTE.voidDeck);
+    }
+  }
+  ctx.restore();
+}
+
+/* ---- the frame ---------------------------------------------------------- */
+function boardProjection(layout, cameraRow) {
+  const tile = CONFIG.TILE * layout.scale;
+  // The doom wall can sit up to WALL_TRAIL_ROWS behind the player, and it must
+  // never be off screen — seeing it is how the player reads their own danger.
+  // So the camera keeps at least that much board below the player, always.
+  const cameraBack = Math.max(CONFIG.WALL_TRAIL_ROWS + 1, Math.round(layout.rows * 0.28));
+  const bottomRow = cameraRow - cameraBack;
+  const firstRow = Math.floor(bottomRow) - 1;
+  return {
+    layout,
+    tile,
+    firstRow,
+    lastRow: firstRow + layout.rows + 3,
+    rowY: (r) => layout.h - (r - bottomRow + 1) * tile,
+    colX: (c) => (c + 0.5) * tile,
+  };
+}
+
+function bandIsVisible(band, board) {
+  return band.startRow + band.rows >= board.firstRow && band.startRow <= board.lastRow;
+}
+
+// Two dashed edge lines with nothing between them — the marking used at
+// signalised crossings in Singapore, rather than a full zebra ladder.
+function drawZebra(ctx, band, board) {
+  const { tile, rowY } = board;
+  const top = rowY(band.startRow + band.rows - 1);
+  const height = band.rows * tile;
+
+  ctx.fillStyle = 'rgba(0,0,0,0.10)';
+  ctx.fillRect(band.zebraCol * tile, top, CONFIG.ZEBRA_WIDTH * tile, height);
+
+  const dash = tile * 0.30;
+  const gap = tile * 0.22;
+  const w = tile * 0.16;
+  ctx.fillStyle = PALETTE.zebra;
+  for (const edge of [0, CONFIG.ZEBRA_WIDTH]) {
+    const x = band.zebraCol * tile + edge * tile - w / 2;
+    for (let y = top + gap * 0.5; y < top + height - dash * 0.4; y += dash + gap) {
+      ctx.fillRect(x, y, w, Math.min(dash, top + height - y));
+    }
+  }
+}
+
+function drawBands(ctx, bands, board) {
+  const { layout, tile, rowY } = board;
+  for (const band of bands) {
+    for (let i = 0; i < band.rows; i++) {
+      const r = band.startRow + i;
+      if (r < board.firstRow || r > board.lastRow) continue;
+      const y = rowY(r);
+
+      if (band.type === 'pavement') {
+        ctx.fillStyle = r % 2 === 0 ? PALETTE.grassA : PALETTE.grassB;
+        ctx.fillRect(0, y, layout.w, tile + 1);
+        continue;
+      }
+
+      ctx.fillStyle = PALETTE.asphalt;
+      ctx.fillRect(0, y, layout.w, tile + 1);
+      if (i === 0) {
+        ctx.fillStyle = PALETTE.kerb;
+        ctx.fillRect(0, y + tile - tile * 0.1, layout.w, tile * 0.1);
+      }
+      if (i === band.rows - 1) {
+        ctx.fillStyle = PALETTE.kerb;
+        ctx.fillRect(0, y, layout.w, tile * 0.1);
+      }
+      if (i > 0) {
+        ctx.fillStyle = PALETTE.lane;
+        for (let d = 0; d < CONFIG.GRID_COLS * 2; d += 2) {
+          ctx.fillRect(d * tile * 0.5 + tile * 0.1, y + tile - 1, tile * 0.3, 2);
+        }
+      }
+    }
+
+    if (band.type === 'road' && bandIsVisible(band, board)) drawZebra(ctx, band, board);
+  }
+}
+
+// The hazard is now a real speeding car, not an abstract red band: a warning
+// triangle on both kerbs first, then a vehicle that tears down the whole lane
+// ignoring the signal. It cannot be sidestepped -- the only answer is to not
+// be on that row -- so it is drawn wide and fast enough to read as unstoppable.
+function drawHazard(ctx, band, hazard, phase, board, elapsedMs, sweepT) {
+  if (!hazard || phase === 'none') return;
+  const { layout, tile, rowY } = board;
+  const row = band.startRow + hazard.laneOffset;
+  const y = rowY(row);
+  const cy = y + tile / 2;
+
+  if (phase === 'warning') {
+    const pulse = 0.5 + 0.5 * Math.sin(elapsedMs / 90);
+    // hatched danger stripes down the threatened lane
+    ctx.save();
+    ctx.globalAlpha = 0.16 + 0.14 * pulse;
+    ctx.fillStyle = PALETTE.warnTri;
+    ctx.fillRect(0, y, layout.w, tile);
+    ctx.restore();
+    drawWarningTriangle(ctx, tile * 0.55, cy, tile * 0.5, pulse);
+    drawWarningTriangle(ctx, layout.w - tile * 0.55, cy, tile * 0.5, pulse);
+    return;
+  }
+
+  // sweeping: the car crosses the full width over the sweep window
+  const dir = hazard.laneOffset % 2 === 0 ? 1 : -1;
+  const len = tile * 2.6;
+  const travel = layout.w + len * 2;
+  const t = Math.min(1, Math.max(0, sweepT));
+  const cx = dir === 1 ? -len + travel * t : layout.w + len - travel * t;
+
+  // speed streaks trailing behind it
+  ctx.save();
+  ctx.globalAlpha = 0.5;
+  ctx.strokeStyle = 'rgba(255,255,255,0.75)';
+  ctx.lineWidth = Math.max(1.5, tile * 0.05);
+  ctx.lineCap = 'round';
+  for (let i = 1; i <= 4; i++) {
+    const sx = cx - dir * (len * 0.6 + i * tile * 0.7);
+    ctx.beginPath();
+    ctx.moveTo(sx, cy - tile * 0.18 + i * tile * 0.06);
+    ctx.lineTo(sx + dir * tile * 0.5, cy - tile * 0.18 + i * tile * 0.06);
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  const h = tile * 0.8;
+  const px = cx - len / 2;
+  const py = cy - h / 2;
+  const r = tile * 0.18;
+  contactShadow(ctx, cx, cy + h * 0.46, len * 0.55, h * 0.3, 0.3);
+  depthRect(ctx, px, py, len, h, r, PALETTE.hazard, Math.max(3, tile * 0.1));
+  // roof and glass, same language as ordinary traffic so it reads as a car
+  fillRoundRect(ctx, cx - len * 0.22, py + h * 0.16, len * 0.44, h * 0.68, r * 0.7,
+    'rgba(255,255,255,0.22)');
+  const sw = len * 0.08;
+  fillRoundRect(ctx, cx - len * 0.22 - sw * 1.2, py + h * 0.2, sw, h * 0.6, r * 0.5, PALETTE.glass);
+  fillRoundRect(ctx, cx + len * 0.22 + sw * 0.2, py + h * 0.2, sw, h * 0.6, r * 0.5, PALETTE.glass);
+  // headlights blazing in the direction of travel
+  const hx = dir === 1 ? px + len * 0.94 : px + len * 0.02;
+  fillRoundRect(ctx, hx, py + h * 0.16, len * 0.04, h * 0.68, 2, '#FFF3C4');
+  gloss(ctx, px, py, len, h, r, 0.38);
+}
+
+function drawWall(ctx, state, elapsedMs, board) {
+  const { layout, tile, rowY } = board;
+  const wallY = rowY(state.wallRow) + tile;
+  if (wallY >= layout.h + tile * 2) return;
+
+  ctx.fillStyle = vGradient(ctx, wallY - tile * 1.2, wallY, 'rgba(36,28,46,0)', PALETTE.wall);
+  ctx.fillRect(0, wallY - tile * 1.2, layout.w, tile * 1.2);
+  ctx.fillStyle = PALETTE.wall;
+  ctx.fillRect(0, wallY, layout.w, layout.h);
+
+  ctx.strokeStyle = PALETTE.wallEdge;
+  ctx.lineWidth = Math.max(2, tile * 0.07);
+  ctx.lineCap = 'round';
+  const drift = (elapsedMs / 26) % (tile * 1.4);
+  for (let i = -1; i < CONFIG.GRID_COLS; i++) {
+    const cx = i * tile * 1.4 + drift;
+    ctx.beginPath();
+    ctx.moveTo(cx, wallY + tile * 0.62);
+    ctx.lineTo(cx + tile * 0.34, wallY + tile * 0.26);
+    ctx.lineTo(cx + tile * 0.68, wallY + tile * 0.62);
+    ctx.stroke();
+  }
+}
+
+/* ---- Vision cone ---------------------------------------------------------
+   Project Zomboid-style directional sight. Everything outside the cone is
+   darkened here, and callers skip drawing cars, hazards and props out there
+   entirely. Purely cosmetic: rules.js simulated all of it either way, and
+   collision was already resolved against the real positions before this runs.
+
+   The darkness is composited on its own offscreen layer so the holes can be
+   punched with destination-out without erasing the board underneath.
+   ------------------------------------------------------------------------- */
+let fogCanvas = null;
+
+// The fog is nothing but soft gradients, so it is rendered at half resolution
+// and scaled up. At full board size it was ~2M gradient pixels every frame,
+// which pegged the CPU hard enough to stall screenshots on a laptop.
+const FOG_SCALE = 0.5;
+
+function drawVisionCone(ctx, layout, cx, cy, aimRad, radiusPx) {
+  const w = Math.max(1, Math.ceil(layout.w * FOG_SCALE));
+  const h = Math.max(1, Math.ceil(layout.h * FOG_SCALE));
+  if (!fogCanvas) fogCanvas = document.createElement('canvas');
+  if (fogCanvas.width !== w || fogCanvas.height !== h) {
+    fogCanvas.width = w;
+    fogCanvas.height = h;
+  }
+  const f = fogCanvas.getContext('2d');
+  f.setTransform(FOG_SCALE, 0, 0, FOG_SCALE, 0, 0);
+  f.clearRect(0, 0, layout.w, layout.h);
+
+  f.fillStyle = `rgba(6,5,10,${CONFIG.CONE_DARKEN})`;
+  f.fillRect(0, 0, layout.w, layout.h);
+
+  f.globalCompositeOperation = 'destination-out';
+
+  // the sighted wedge, feathered along its length
+  const half = (CONFIG.CONE_HALF_ANGLE_DEG + CONFIG.CONE_SOFT_EDGE_DEG * 0.5) * Math.PI / 180;
+  const wedge = f.createRadialGradient(cx, cy, radiusPx * 0.15, cx, cy, radiusPx);
+  wedge.addColorStop(0, 'rgba(0,0,0,1)');
+  wedge.addColorStop(0.7, 'rgba(0,0,0,0.96)');
+  wedge.addColorStop(1, 'rgba(0,0,0,0)');
+  f.fillStyle = wedge;
+  f.beginPath();
+  f.moveTo(cx, cy);
+  f.arc(cx, cy, radiusPx, aimRad - half, aimRad + half);
+  f.closePath();
+  f.fill();
+
+  // the always-lit bubble around the player
+  const nearPx = CONFIG.CONE_NEAR_RADIUS_TILES * (radiusPx / CONFIG.CONE_RADIUS_TILES);
+  const near = f.createRadialGradient(cx, cy, nearPx * 0.4, cx, cy, nearPx * 1.5);
+  near.addColorStop(0, 'rgba(0,0,0,1)');
+  near.addColorStop(1, 'rgba(0,0,0,0)');
+  f.fillStyle = near;
+  f.beginPath();
+  f.arc(cx, cy, nearPx * 1.5, 0, Math.PI * 2);
+  f.fill();
+
+  f.globalCompositeOperation = 'source-over';
+  ctx.drawImage(fogCanvas, 0, 0, layout.w, layout.h);
+}
+
+// Whether a board cell is currently sighted. Screen-space: +y is DOWN, so a
+// row further up the board is a NEGATIVE dy, matching the cursor's angle.
+function cellVisible(view, col, row) {
+  if (view.aimRad === undefined) return true;
+  return coneVisibility(col - view.playerCol, -(row - view.playerRow),
+    view.aimRad, view.coneRadiusTiles) > 0;
+}
+
+function drawFrame(ctx, view) {
+  const {
+    viewW, viewH, bands, cars, state, elapsedMs, cameraRow, tier,
+    hazardByBand, obstacles, coneRadiusTiles,
+  } = view;
+
+  const bg = ctx.createRadialGradient(
+    viewW / 2, viewH * 0.42, 10, viewW / 2, viewH * 0.42, Math.max(viewW, viewH) * 0.78,
+  );
+  bg.addColorStop(0, PALETTE.greenLift);
+  bg.addColorStop(0.55, PALETTE.greenMid);
+  bg.addColorStop(1, PALETTE.greenEdge);
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, viewW, viewH);
+
+  const layout = boardLayout(viewW, viewH);
+  const board = boardProjection(layout, cameraRow);
+  const { tile, rowY, colX } = board;
+  const corner = 18 * layout.scale;
+
+  // Streetscape sits on the backdrop, framing the board rather than covering it.
+  drawStreetscape(ctx, layout, tile, cameraRow);
+
+  ctx.save();
+  ctx.shadowColor = PALETTE.boardShadow;
+  ctx.shadowBlur = 26 * layout.scale;
+  ctx.shadowOffsetY = 10 * layout.scale;
+  fillRoundRect(ctx, layout.x, layout.y, layout.w, layout.h, corner, PALETTE.boardBase);
+  ctx.restore();
+
+  ctx.save();
+  roundRectPath(ctx, layout.x, layout.y, layout.w, layout.h, corner);
+  ctx.clip();
+  ctx.translate(layout.x, layout.y);
+
+  ctx.fillStyle = PALETTE.grassB;
+  ctx.fillRect(0, 0, layout.w, layout.h);
+
+  drawBands(ctx, bands, board);
+
+  // Cars, hazards and props are only DRAWN inside the cone. They are always
+  // fully simulated regardless — being unable to see one has never made it
+  // safe, which is the whole point of the mechanic.
+  for (const car of cars) {
+    if (car.row < board.firstRow || car.row > board.lastRow) continue;
+    if (!cellVisible(view, car.x, car.row)) continue;
+    drawCar(ctx, car, colX(car.x), rowY(car.row) + tile / 2, tile);
+  }
+
+  // Props are always drawn, cone or not. Hiding STATIC scenery just makes the
+  // player walk into invisible trees, which is irritating rather than
+  // instructive — it is unseen TRAFFIC that carries the lesson.
+  if (obstacles) {
+    for (const o of obstacles) {
+      if (o.row < board.firstRow || o.row > board.lastRow) continue;
+      drawObstacle(ctx, o, colX(o.col), rowY(o.row), tile);
+    }
+  }
+
+  for (const band of bands) {
+    if (band.type !== 'road' || !bandIsVisible(band, board)) continue;
+    const side = band.zebraCol >= 1
+      ? band.zebraCol - 0.5
+      : band.zebraCol + CONFIG.ZEBRA_WIDTH + 0.5;
+    // The signal is always drawn, cone or not: a light you cannot find is
+    // just frustrating, and it is the one thing the player must be able to read.
+    drawSignal(ctx, band, colX(side - 0.5), rowY(band.startRow - 1) + tile * 0.5, tile, elapsedMs);
+
+    const hz = hazardByBand && hazardByBand.get(band.index);
+    // The hazard warning is also always drawn — a telegraph you can miss by
+    // looking the wrong way would be an unfair death, not a lesson.
+    if (hz) drawHazard(ctx, band, hz.hazard, hz.phase, board, elapsedMs, hz.sweepT);
+  }
+
+  drawWall(ctx, state, elapsedMs, board);
+
+  // player — omitted entirely once the run has ended, so impact is never drawn
+  if (!view.playerHidden) {
+    drawPlayer(ctx, tier, colX(view.playerCol), rowY(view.playerRow) + tile / 2,
+      tile, view.playerLift * tile);
+  }
+
+  // vignette
+  const vg = ctx.createRadialGradient(
+    layout.w / 2, layout.h / 2, Math.min(layout.w, layout.h) * 0.34,
+    layout.w / 2, layout.h / 2, Math.max(layout.w, layout.h) * 0.72,
+  );
+  vg.addColorStop(0, 'rgba(0,0,0,0)');
+  vg.addColorStop(1, 'rgba(0,0,0,0.28)');
+  ctx.fillStyle = vg;
+  ctx.fillRect(0, 0, layout.w, layout.h);
+
+  if (view.aimRad !== undefined && !view.playerHidden) {
+    drawVisionCone(ctx, layout, colX(view.playerCol), rowY(view.playerRow) + tile / 2,
+      view.aimRad, coneRadiusTiles * tile);
+  }
+
+  ctx.restore();
+
+  ctx.strokeStyle = 'rgba(255,255,255,0.34)';
+  ctx.lineWidth = 2;
+  roundRectPath(ctx, layout.x + 1, layout.y + 1, layout.w - 2, layout.h - 2, corner);
+  ctx.stroke();
+
+  return { pauseHit: drawHud(ctx, view, layout) };
+}
+
+function drawHud(ctx, view, layout) {
+  const { state, viewW, viewH } = view;
+  const h = Math.max(38, Math.min(54, layout.w * 0.115));
+  const y = Math.max(10, layout.y - h - 14);
+  const pillW = Math.min(132, layout.w * 0.3);
+  const pauseR = h / 2;
+
+  pill(ctx, layout.x, y, pillW, h, 'DISTANCE', String(view.distance));
+  pill(ctx, layout.x + pillW + 10, y, pillW, h, 'COMBO', `x${state.combo}`);
+  pauseButton(ctx, layout.x + layout.w - pauseR, y + h / 2, pauseR, view.paused);
+
+  if (view.flash > 0) {
+    ctx.fillStyle = `rgba(224,59,54,${view.flash * 0.36})`;
+    ctx.fillRect(0, 0, viewW, viewH);
+  }
+  for (const f of view.flourishes) {
+    chunkyText(ctx, f.text, layout.x + layout.w / 2, layout.y + layout.h * 0.42 - f.t * 60,
+      Math.max(20, layout.w * 0.075), `rgba(250,247,236,${1 - f.t})`);
+  }
+
+  return { x: layout.x + layout.w - pauseR * 2, y, w: pauseR * 2, h };
+}
+
+/* ---- small toast (Young tier only — auto-clears, no input possible) ------ */
+function drawToast(ctx, view, progress, reducedMotion) {
+  const layout = boardLayout(view.viewW, view.viewH);
+  const w = layout.w * 0.7;
+  const h = Math.max(56, layout.h * 0.12);
+  const x = layout.x + (layout.w - w) / 2;
+  const slide = reducedMotion ? 0 : (1 - progress) * (h + 24);
+  const y = layout.y + layout.h * 0.22 - slide;
+
+  ctx.save();
+  ctx.globalAlpha = reducedMotion ? progress : 1;
+  contactShadow(ctx, x + w / 2, y + h + 5, w * 0.42, 8, 0.3);
+  depthRect(ctx, x, y, w, h, 14, '#F4F1E8', 4);
+  fillRoundRect(ctx, x + 12, y + h / 2 - 12, 24, 24, 7, '#8CA8B8');
+  chunkyText(ctx, 'Notification', x + 46, y + h / 2, Math.max(12, h * 0.28), '#2B2015', 'left');
+  gloss(ctx, x, y, w, h, 14, 0.46);
+  ctx.restore();
+}
+
+/* ---- full-screen distraction block (notification / call / boss) --------- */
+// Who the message is from, as the card presents them. An unknown sender (or
+// 'system') falls back to a generic, faceless notification.
+const SENDERS = {
+  raeann: { name: 'Raeann', avatar: '#4E8BD8' },
+  boss: { name: 'Boss', avatar: '#1E2632' },
+};
+const UNKNOWN_SENDER = { name: 'Notification', avatar: '#8CA8B8' };
+
+const BODY_PX = 15;          // message body type size
+const BODY_LINE_H = 26;      // ...and its line height, which sets the card height
+const DISMISS_HINT_H = 46;   // space the "tap to dismiss" line occupies instead of options
+
+// Returns hit boxes in VIEWPORT space: { dismiss } for a dismiss-only event,
+// or { options: [...] } for one requiring a reply.
+function drawDistractionBlock(ctx, view, block, reducedMotion) {
+  const { event, content } = block;
+  const { viewW, viewH } = view;
+  const progress = reducedMotion ? block.progress : Math.min(1, block.progress * 1.6);
+
+  ctx.save();
+  ctx.globalAlpha = 0.9 * progress;
+  ctx.fillStyle = '#1B140C';
+  ctx.fillRect(0, 0, viewW, viewH);
+  ctx.restore();
+  if (progress < 0.35) return { dismiss: null, options: [] };
+
+  const isCall = event.kind === 'call';
+  const sender = SENDERS[event.sender] || UNKNOWN_SENDER;
+
+  const cardW = Math.min(420, viewW * 0.86);
+  const padding = 20;
+  const optionH = 46;
+  const optionGap = 10;
+  const optionCount = event.requiresReply ? content.options.length : 0;
+
+  // Measured at the body size the lines are actually drawn at, below.
+  ctx.font = `${BODY_PX}px ${FONT}`;
+  const bodyLines = wrapText(ctx, content.text, cardW - padding * 2);
+  const answerH = optionCount > 0 ? optionCount * (optionH + optionGap) : DISMISS_HINT_H;
+  const cardH = 74 + bodyLines.length * BODY_LINE_H + answerH;
+  const cardX = (viewW - cardW) / 2;
+  const cardY = (viewH - cardH) / 2;
+
+  ctx.save();
+  ctx.globalAlpha = progress;
+  contactShadow(ctx, cardX + cardW / 2, cardY + cardH + 8, cardW * 0.44, 12, 0.36);
+  depthRect(ctx, cardX, cardY, cardW, cardH, 20, '#F4F1E8', 5);
+
+  fillCircle(ctx, cardX + padding + 18, cardY + padding + 18, 18, sender.avatar);
+  chunkyText(ctx, isCall ? `${sender.name} · calling` : sender.name,
+    cardX + padding + 46, cardY + padding + 14, 17, '#2B2015', 'left');
+  ctx.font = `13px ${FONT}`;
+  ctx.fillStyle = 'rgba(43,32,21,0.55)';
+  ctx.textAlign = 'left';
+  ctx.fillText(event.kind === 'boss' ? 'Urgent' : 'now', cardX + padding + 46, cardY + padding + 32);
+
+  let ty = cardY + padding + 54;
+  ctx.font = `${BODY_PX}px ${FONT}`;
+  ctx.fillStyle = '#2B2015';
+  ctx.textAlign = 'left';
+  for (const line of bodyLines) {
+    ctx.fillText(line, cardX + padding, ty);
+    ty += BODY_LINE_H;
+  }
+
+  const hits = { dismiss: null, options: [] };
+  let oy = ty + 8;
+  if (event.requiresReply) {
+    content.options.forEach((opt) => {
+      const ox = cardX + padding;
+      const ow = cardW - padding * 2;
+      fillRoundRect(ctx, ox, oy, ow, optionH, 12,
+        vGradient(ctx, oy, oy + optionH, PALETTE.badgeTop, PALETTE.badgeBot));
+      chunkyText(ctx, opt.text, ox + ow / 2, oy + optionH / 2, 15, PALETTE.badgeText);
+      // ox/oy are already viewport-space coordinates (cardX is), so the hit
+      // box needs no further offset.
+      hits.options.push({ x: ox, y: oy, w: ow, h: optionH });
+      oy += optionH + optionGap;
+    });
+  } else {
+    chunkyText(ctx, 'tap or swipe to dismiss', cardX + cardW / 2, oy + 14, 13,
+      'rgba(43,32,21,0.55)');
+    hits.dismiss = { x: cardX, y: cardY, w: cardW, h: cardH };
+  }
+
+  gloss(ctx, cardX, cardY, cardW, cardH, 20, 0.42);
+  ctx.restore();
+
+  return hits;
+}
+
+/* =========================================================================
+   main.js — loop, input, wiring. Owns time, the DOM screens, and the bridge
+   between pure rules and the canvas.
+   ========================================================================= */
+
+
+
+const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const BAND_CHUNK = 200;   // bands generated at a time; the world extends forever
+
+const el = (id) => document.getElementById(id);
+const canvas = el('game');
+const { ctx } = setupCanvas(canvas);
+
+/* ---- audio -------------------------------------------------------------- */
+let audio = null;
+
+// One oscillator with an exponential attack/release envelope. Every sound in
+// the game is one or more of these started at the same instant.
+function tone(now, { freq, type, peak, attackSec, releaseSec, stopSec }) {
+  const o = audio.createOscillator();
+  const g = audio.createGain();
+  o.type = type;
+  o.frequency.value = freq;
+  g.gain.setValueAtTime(0.0001, now);
+  g.gain.exponentialRampToValueAtTime(peak, now + attackSec);
+  g.gain.exponentialRampToValueAtTime(0.0001, now + releaseSec);
+  o.connect(g).connect(audio.destination);
+  o.start(now); o.stop(now + stopSec);
+}
+
+function play(voices) {
+  try {
+    audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+    const now = audio.currentTime;
+    for (const voice of voices) tone(now, voice);
+  } catch { /* audio is a nicety, never a blocker */ }
+}
+
+function horn() {
+  play([420, 530].map((freq) => ({
+    freq, type: 'square', peak: 0.16, attackSec: 0.02, releaseSec: 0.42, stopSec: 0.45,
+  })));
+}
+
+function blip(freq, vol = 0.07) {
+  play([{
+    freq, type: 'triangle', peak: vol, attackSec: 0.015, releaseSec: 0.2, stopSec: 0.22,
+  }]);
+}
+
+/* ---- run ---------------------------------------------------------------- */
+let run = null;
+
+function newRun(tierIndex) {
+  const tier = CONFIG.DIFFICULTY_TIERS[tierIndex];
+  const worldSeed = (Math.random() * 1e6) | 0;
+  const startCol = (CONFIG.GRID_COLS / 2) | 0;
+  return {
+    tierIndex,
+    tier,
+    bands: generateBands(0, BAND_CHUNK, worldSeed),
+    bandCount: BAND_CHUNK,
+    bandDataCache: new Map(),          // bandIndex -> { cars, hazard }
+    state: createState(tierIndex, worldSeed),
+    row: 0,
+    col: startCol,
+    fromRow: 0, fromCol: startCol,
+    hopT: 1,
+    queued: null,
+    cameraRow: 0,
+    distance: 0,
+    elapsedMs: 0,
+    crossing: null,
+    crossingSettled: false,
+    kerbSinceMs: null,
+    phase: 'playing',
+    shake: 0,
+    flash: 0,
+    flourishes: [],
+    playerHidden: false,
+    endReason: '',
+    // The chase starts when the player does, so nobody dies while still
+    // reading the board on their first look at it.
+    hasMoved: false,
+
+    // Where the player is looking. Starts aimed up the board (screen-space
+    // angle, +y down), which is the direction of travel.
+    aimRad: -Math.PI / 2,
+
+    // Phone distraction.
+    schedule: distractionSchedule(tier, worldSeed),
+    lastScheduledStart: -1,
+    activeBlock: null,                 // { event, content } | null
+    nextBossRow: CONFIG.BOSS_EVENT_EVERY_ROWS,
+  };
+}
+
+// Cars and hazard eligibility for a band are cached together, seeded from the
+// band's own seed plus the world seed plus the current tier — regenerating
+// the schedule for a longer world (extendWorld) never touches bands already
+// cached, so nothing already on screen jumps.
+function bandData(band) {
+  let data = run.bandDataCache.get(band.index);
+  if (data) return data;
+
+  if (band.type === 'pavement') {
+    // Props must know the crossing they lead to, so that approach is kept clear.
+    const ahead = bandAtRow(run.bands, band.startRow + band.rows);
+    const zebraAhead = ahead && ahead.type === 'road' ? ahead.zebraCol : null;
+    data = {
+      cars: [],
+      hazard: null,
+      obstacles: obstaclesForBand(band, zebraAhead,
+        makeRng(band.seed + run.state.worldSeed + 5077), (CONFIG.GRID_COLS / 2) | 0),
+    };
+  } else {
+    data = {
+      cars: spawnCarsForBand(band, makeRng(band.seed + run.state.worldSeed), run.tier),
+      hazard: hazardForBand(band, run.tier, makeRng(band.seed + run.state.worldSeed + 97)),
+      obstacles: [],
+    };
+  }
+  run.bandDataCache.set(band.index, data);
+  return data;
+}
+
+// Solid props anywhere in the loaded world.
+function blockedAt(row, col) {
+  const band = bandAtRow(run.bands, row);
+  if (!band) return false;
+  return isBlocked(bandData(band).obstacles, row, col);
+}
+
+// Band contents are a pure function of index and world seed, so regenerating a
+// longer list leaves every existing band identical and keeps bandDataCache valid.
+function extendWorld() {
+  const last = run.bands[run.bands.length - 1];
+  if (last.startRow + last.rows > run.row + 80) return;
+  run.bandCount += BAND_CHUNK;
+  run.bands = generateBands(0, run.bandCount, run.state.worldSeed);
+}
+
+function visibleBands() {
+  const bottom = run.cameraRow - 12;
+  const top = bottom + VIEW_ROWS + 12;
+  return run.bands.filter((b) => b.startRow + b.rows >= bottom && b.startRow <= top);
+}
+
+/* ---- phone distraction ---------------------------------------------------- */
+function pickContent(event) {
+  if (event.kind === 'toast' || event.sender === 'system') {
+    return { text: 'New notification', options: [] };
+  }
+  const poolId = event.kind === 'call' ? 'callReactions' : event.sender;
+  const pool = CONFIG.MESSAGE_POOLS[poolId];
+  const entry = pool[Math.floor(Math.random() * pool.length)];
+  return {
+    text: entry.text,
+    options: shuffledOptions(entry.options, makeRng((Math.random() * 1e9) | 0)),
+  };
+}
+
+function settleDistraction(action) {
+  if (!run || !run.activeBlock) return;
+  const before = run.state;
+  run.state = resolveDistraction(before, run.activeBlock.event, action);
+  const failed = run.state.telemetry.notificationsMissed > before.telemetry.notificationsMissed;
+  if (failed) { run.flash = Math.max(run.flash, 0.7); blip(180, 0.1); } else { blip(620, 0.08); }
+  run.activeBlock = null;
+}
+
+function updateDistraction() {
+  if (run.activeBlock) {
+    const { event } = run.activeBlock;
+    if (run.elapsedMs >= event.startMs + event.durationMs) settleDistraction('timedOut');
+    return;                       // one distraction at a time
+  }
+
+  if (isBossRowDue(run.row, run.nextBossRow, run.tier)) {
+    run.nextBossRow += CONFIG.BOSS_EVENT_EVERY_ROWS;
+    const event = {
+      kind: 'boss', sender: 'boss', requiresReply: true, fogOfWar: true,
+      startMs: run.elapsedMs, durationMs: CONFIG.NOTIFICATION_DURATION_MS,
+    };
+    run.activeBlock = { event, content: pickContent(event) };
+    return;
+  }
+
+  const scheduled = activeDistraction(run.schedule, run.elapsedMs);
+  if (scheduled && scheduled.startMs > run.lastScheduledStart) {
+    run.lastScheduledStart = scheduled.startMs;
+    run.activeBlock = { event: scheduled, content: pickContent(scheduled) };
+  }
+}
+
+/* ---- movement ----------------------------------------------------------- */
+function tryMove(dRow, dCol) {
+  if (!run || run.phase !== 'playing') return;
+  // A reply-required block means the player is meant to be looking at their
+  // phone, not the road — movement is suspended until it's resolved.
+  if (run.activeBlock && run.activeBlock.event.requiresReply) return;
+  if (run.hopT < 1) { run.queued = { dRow, dCol }; return; }
+
+  const row = Math.max(0, run.row + dRow);
+  const col = Math.min(CONFIG.GRID_COLS - 1, Math.max(0, run.col + dCol));
+  if (row === run.row && col === run.col) return;
+  if (blockedAt(row, col)) { blip(150, 0.05); return; }   // solid prop
+
+  run.fromRow = run.row; run.fromCol = run.col;
+  run.row = row; run.col = col;
+  run.hopT = 0;
+  run.hasMoved = true;
+  onCellEntered();
+}
+
+function onCellEntered() {
+  const band = bandAtRow(run.bands, run.row);
+  const prevBand = bandAtRow(run.bands, run.fromRow);
+
+  const wasCrossing = run.crossing;
+  const next = stepCrossing(
+    { crossing: run.crossing, settled: run.crossingSettled },
+    prevBand, band, run.fromRow, run.row, run.col, run.elapsedMs,
+  );
+  run.crossing = next.crossing;
+  run.crossingSettled = next.settled;
+
+  // Kerb dwell: time spent on the pavement before committing to a crossing.
+  if (band && band.type === 'pavement') {
+    if (run.kerbSinceMs === null) run.kerbSinceMs = run.elapsedMs;
+  } else if (!wasCrossing && next.crossing && run.kerbSinceMs !== null) {
+    run.state = recordKerbWait(run.state, run.elapsedMs - run.kerbSinceMs);
+    run.kerbSinceMs = null;
+  }
+
+  if (next.outcome === 'legal') {
+    run.state = applyOutcome(run.state, 'legal');
+    blip(720, 0.09);
+    run.flourishes.push({ text: `COMBO x${run.state.combo}`, t: 0 });
+  } else if (next.outcome === 'violation') {
+    run.state = applyOutcome(run.state, 'violation');
+    run.flash = 1;
+    blip(180, 0.1);
+  }
+}
+
+/* ---- loop --------------------------------------------------------------- */
+let last = performance.now();
+
+function frame(now) {
+  // Scheduled first so a single bad frame can never kill the loop mid-demo.
+  requestAnimationFrame(frame);
+
+  // The rAF timestamp can precede a performance.now() taken just before it,
+  // so clamp the low end too or time runs backwards on the first frame.
+  const dt = Math.max(0, Math.min((now - last) / 1000, CONFIG.MAX_DT));
+  last = now;
+
+  if (run && run.phase === 'playing') update(dt);
+  if (run) draw(canvas.clientWidth, canvas.clientHeight);
+}
+
+function update(dt) {
+  run.elapsedMs += dt * 1000;
+
+  // hop tween — never an instant teleport
+  if (run.hopT < 1) {
+    run.hopT = Math.min(1, run.hopT + (dt * 1000) / CONFIG.HOP_MS);
+    if (run.hopT >= 1 && run.queued) {
+      const q = run.queued; run.queued = null;
+      tryMove(q.dRow, q.dCol);
+    }
+  }
+
+  extendWorld();
+  updateDistraction();
+  run.distance = Math.max(run.distance, run.row);
+  run.cameraRow += (run.row - run.cameraRow) * Math.min(1, dt * CONFIG.CAMERA_CHASE);
+  // The wall paces the player, so it needs to know where they are — but it
+  // holds station until they take their first step.
+  if (run.hasMoved) run.state = stepWall(run.state, dt, run.row);
+
+  for (const band of visibleBands()) {
+    if (band.type !== 'road') continue;
+    const data = bandData(band);
+    data.cars = stepCars(data.cars, band, dt, run.elapsedMs);
+  }
+
+  // collision — checked against the tweened position so it matches what is drawn
+  const p = playerPos();
+  const band = bandAtRow(run.bands, run.row);
+  if (band && band.type === 'road' && run.hopT >= 0.35) {
+    const data = bandData(band);
+    for (const car of data.cars) {
+      if (carHitsPlayer(car, run.row, p.col)) { endRun('hit'); return; }
+    }
+    if (data.hazard && hazardHitsPlayer(band, data.hazard, run.elapsedMs, run.row)) {
+      endRun('hit');
+      return;
+    }
+  }
+  if (isCaught(run.state, run.row)) {
+    endRun('wall');
+    return;
+  }
+
+  run.shake = Math.max(0, run.shake - dt * CONFIG.SHAKE_DECAY);
+  run.flash = Math.max(0, run.flash - dt * CONFIG.FLASH_DECAY);
+  run.flourishes = run.flourishes
+    .map((f) => ({ ...f, t: f.t + dt * CONFIG.FLOURISH_DECAY }))
+    .filter((f) => f.t < 1);
+}
+
+function playerPos() {
+  const t = run.hopT >= 1 ? 1 : 1 - (1 - run.hopT) ** 3;   // ease-out
+  return {
+    col: run.fromCol + (run.col - run.fromCol) * t,
+    row: run.fromRow + (run.row - run.fromRow) * t,
+    lift: run.hopT >= 1 ? 0 : Math.sin(run.hopT * Math.PI) * CONFIG.HOP_LIFT,
+  };
+}
+
+let pauseHit = null;
+let distractionHits = null;
+
+function draw(viewW, viewH) {
+  const p = playerPos();
+  const bands = visibleBands();
+  const cars = [];
+  const obstacles = [];
+  const hazardByBand = new Map();
+  for (const band of bands) {
+    const data = bandData(band);
+    if (data.obstacles.length) obstacles.push(...data.obstacles);
+    if (band.type !== 'road') continue;
+    cars.push(...data.cars);
+    if (data.hazard) {
+      const phase = hazardPhase(band, data.hazard, run.elapsedMs);
+      // How far through its sweep the car is, so the renderer can place it.
+      const cyclePos = ((run.elapsedMs + (band.seed * 653) % CONFIG.HAZARD_CYCLE_MS)
+        % CONFIG.HAZARD_CYCLE_MS + CONFIG.HAZARD_CYCLE_MS) % CONFIG.HAZARD_CYCLE_MS;
+      const sweepStart = CONFIG.HAZARD_CYCLE_MS - CONFIG.HAZARD_SWEEP_MS;
+      hazardByBand.set(band.index, {
+        hazard: data.hazard,
+        phase,
+        sweepT: (cyclePos - sweepStart) / CONFIG.HAZARD_SWEEP_MS,
+      });
+    }
+  }
+
+  const amp = run.shake * (reducedMotion ? CONFIG.SHAKE_PX_REDUCED : CONFIG.SHAKE_PX);
+  ctx.save();
+  if (amp > 0.01) {
+    ctx.translate((Math.random() - 0.5) * amp, (Math.random() - 0.5) * amp);
+  }
+
+  const fogActive = !!(run.activeBlock && run.activeBlock.event.fogOfWar);
+
+  const view = {
+    viewW, viewH,
+    bands,
+    cars,
+    state: run.state,
+    elapsedMs: run.elapsedMs,
+    cameraRow: run.cameraRow,
+    tier: run.tier,
+    playerCol: p.col,
+    playerRow: p.row,
+    playerLift: p.lift,
+    playerHidden: run.playerHidden,
+    distance: run.distance,
+    paused: run.phase === 'paused',
+    flash: run.flash,
+    flourishes: run.flourishes,
+    hazardByBand,
+    obstacles,
+    aimRad: run.aimRad,
+    coneRadiusTiles: coneRadiusFor(fogActive),
+  };
+  pauseHit = drawFrame(ctx, view).pauseHit;
+
+  // A toast is display-only, so it leaves no hit boxes behind for the pointer
+  // handler; anything else is only tappable while it is actually on screen.
+  distractionHits = null;
+  if (run.activeBlock && run.phase === 'playing') {
+    const { event, content } = run.activeBlock;
+    const progress = Math.min(1, (run.elapsedMs - event.startMs) / 180);
+    if (event.kind === 'toast') {
+      drawToast(ctx, view, progress, reducedMotion);
+    } else {
+      distractionHits = drawDistractionBlock(ctx, view, { event, content, progress }, reducedMotion);
+    }
+  }
+  ctx.restore();
+}
+
+/* ---- run lifecycle ------------------------------------------------------ */
+function endRun(reason) {
+  run.phase = 'over';
+  run.endReason = reason;
+  run.playerHidden = true;          // the impact itself is never drawn
+  run.shake = reducedMotion ? 0.25 : 1;
+  horn();
+  showGameOver();
+}
+
+// At most one DOM screen is ever up; null leaves the canvas uncovered.
+function showScreen(name) {
+  for (const id of ['pledge-screen', 'start-screen', 'tips-screen', 'over-screen', 'pause-screen']) {
+    el(id).hidden = id !== `${name}-screen`;
+  }
+}
+
+function startRun(tierIndex) {
+  run = newRun(tierIndex);
+  last = performance.now();
+  showScreen(null);
+  canvas.focus();
+}
+
+function togglePause(force) {
+  if (!run || (run.phase !== 'playing' && run.phase !== 'paused')) return;
+  const paused = force ?? (run.phase !== 'paused');
+  run.phase = paused ? 'paused' : 'playing';
+  showScreen(paused ? 'pause' : null);
+  if (paused) el('resume-btn').focus(); else canvas.focus();
+  last = performance.now();
+}
+
+function showGameOver() {
+  el('over-distance').textContent = String(run.distance);
+  el('over-combo').textContent = String(run.state.bestCombo);
+  el('over-feedback').textContent = feedbackLine(run.state);
+  const t = run.state.telemetry;
+  el('over-telemetry').textContent =
+    `${t.legalCrossings} safe crossings · ${t.violations} jaywalks · `
+    + `${t.notificationsMissed} messages missed · `
+    + `${(avgKerbWaitMs(t) / 1000).toFixed(1)}s average wait at kerbs`;
+  el('over-cause').textContent = run.endReason === 'wall'
+    ? 'The wall caught you.'
+    : 'You stepped into traffic.';
+  showScreen('over');
+  const screen = el('over-screen');
+  if (!reducedMotion) {
+    screen.classList.remove('slide');
+    void screen.offsetWidth;
+    screen.classList.add('slide');
+  }
+  el('again-btn').focus();
+}
+
+// Returns to the difficulty screen (not the pledge — that's a once-per-boot gate).
+function showStart() {
+  run = null;
+  showScreen('start');
+  el('tier-slider').focus();
+  ctx.clearRect(0, 0, canvas.clientWidth, canvas.clientHeight);
+}
+
+function boot() {
+  run = null;
+  showScreen('pledge');
+  el('pledge-btn').focus();
+}
+
+/* ---- input -------------------------------------------------------------- */
+// key code -> [dRow, dCol]; up the board is +row.
+const KEYS = {
+  ArrowUp: [1, 0], KeyW: [1, 0],
+  ArrowDown: [-1, 0], KeyS: [-1, 0],
+  ArrowLeft: [0, -1], KeyA: [0, -1],
+  ArrowRight: [0, 1], KeyD: [0, 1],
+};
+
+window.addEventListener('keydown', (e) => {
+  // A distraction block owns all input while it's up.
+  if (run && run.activeBlock) {
+    const { event, content } = run.activeBlock;
+    if (event.requiresReply) {
+      const idx = { Digit1: 0, Digit2: 1, Digit3: 2 }[e.code];
+      if (idx !== undefined && content.options[idx]) { e.preventDefault(); settleDistraction(idx); }
+    } else {
+      e.preventDefault();
+      settleDistraction('dismissed');
+    }
+    return;
+  }
+
+  if (e.code === 'Escape' || e.code === 'KeyP') {
+    if (run && (run.phase === 'playing' || run.phase === 'paused')) {
+      e.preventDefault();
+      togglePause();
+    }
+    return;
+  }
+
+  const move = KEYS[e.code];
+  if (!move) return;
+  // Never swallow keys while a DOM screen owns focus, or arrow keys stop
+  // working for keyboard navigation.
+  if (document.activeElement && document.activeElement.closest('.screen')) return;
+  e.preventDefault();
+  const [dRow, dCol] = move;
+  tryMove(dRow, dCol);
+});
+
+function within(hit, px, py) {
+  return !!hit && px >= hit.x && px <= hit.x + hit.w && py >= hit.y && py <= hit.y + hit.h;
+}
+
+/* ---- aiming the vision cone ---------------------------------------------
+   The cone follows the cursor on desktop and a dragged finger on touch. It is
+   the player's only real sight, so it is deliberately cheap to move and never
+   consumes a tap that was meant as a hop.
+   ------------------------------------------------------------------------- */
+function aimAt(clientX, clientY) {
+  if (!run || run.phase !== 'playing') return;
+  const layout = boardLayout(canvas.clientWidth, canvas.clientHeight);
+  const board = canvas.getBoundingClientRect();
+  const tile = CONFIG.TILE * layout.scale;
+  const cameraBack = Math.max(CONFIG.WALL_TRAIL_ROWS + 1, Math.round(layout.rows * 0.28));
+  // Player's on-screen position, mirroring render.js's projection.
+  const px = layout.x + (run.col + 0.5) * tile;
+  const py = layout.y + layout.h - (run.row - (run.cameraRow - cameraBack) + 0.5) * tile;
+  const dx = (clientX - board.left) - px;
+  const dy = (clientY - board.top) - py;
+  if (Math.hypot(dx, dy) < 4) return;                  // ignore jitter on top of the player
+  run.aimRad = Math.atan2(dy, dx);
+}
+
+canvas.addEventListener('pointermove', (e) => aimAt(e.clientX, e.clientY));
+
+let touch = null;
+canvas.addEventListener('pointerdown', (e) => {
+  aimAt(e.clientX, e.clientY);
+  touch = { x: e.clientX, y: e.clientY };
+});
+canvas.addEventListener('pointerup', (e) => {
+  if (!touch) return;
+  const dx = e.clientX - touch.x;
+  const dy = e.clientY - touch.y;
+  touch = null;
+  const r = canvas.getBoundingClientRect();
+  const px = e.clientX - r.left;
+  const py = e.clientY - r.top;
+
+  // A distraction block owns pointer input first.
+  if (run && run.activeBlock) {
+    const { event } = run.activeBlock;
+    if (event.requiresReply) {
+      const opt = distractionHits && distractionHits.options.find((h) => within(h, px, py));
+      if (opt) settleDistraction(distractionHits.options.indexOf(opt));
+      return;                        // no fallback move while a reply is pending
+    }
+    settleDistraction('dismissed');  // any tap or swipe dismisses
+    return;
+  }
+
+  if (Math.abs(dx) < CONFIG.SWIPE_MIN_PX && Math.abs(dy) < CONFIG.SWIPE_MIN_PX) {
+    if (within(pauseHit, px, py)) { togglePause(); return; }
+    tryMove(1, 0);                                     // tap anywhere hops forward
+    return;
+  }
+  if (Math.abs(dx) > Math.abs(dy)) tryMove(0, dx > 0 ? 1 : -1);
+  else tryMove(dy < 0 ? 1 : -1, 0);
+});
+
+/* ---- screens ------------------------------------------------------------ */
+function buildDifficultyScreen() {
+  const slider = el('tier-slider');
+  const name = el('tier-name');
+  const blurb = el('tier-blurb');
+  const chip = el('tier-chip');
+
+  const render = () => {
+    const t = CONFIG.DIFFICULTY_TIERS[Number(slider.value)];
+    name.textContent = t.name;
+    blurb.textContent = t.blurb;
+    chip.style.setProperty('--body', t.colors.body);
+    chip.style.setProperty('--head', t.colors.head);
+    chip.style.setProperty('--hair', t.colors.hair);
+  };
+  slider.max = String(CONFIG.DIFFICULTY_TIERS.length - 1);
+  slider.addEventListener('input', render);
+  render();
+}
+
+el('pledge-btn').addEventListener('click', showStart);
+el('start-btn').addEventListener('click', () => startRun(Number(el('tier-slider').value)));
+el('tips-btn').addEventListener('click', () => showScreen('tips'));
+el('tips-back-btn').addEventListener('click', () => showScreen('start'));
+el('again-btn').addEventListener('click', () => startRun(run.tierIndex));
+el('change-btn').addEventListener('click', showStart);
+el('resume-btn').addEventListener('click', () => togglePause(false));
+el('quit-btn').addEventListener('click', showStart);
+
+buildDifficultyScreen();
+boot();
+requestAnimationFrame(frame);
+
+// Debug handle for automated verification. Reads only; changes nothing.
+window.__game = {
+  get run() { return run; },
+  get state() { return run && run.state; },
+  get distractionHits() { return distractionHits; },
+  CONFIG,
+  start: startRun,
+  move: tryMove,
+  aimAt,
+  settleDistraction,
+  bandAt: (r) => run && bandAtRow(run.bands, r),
+  // The game's OWN signal reading. Automated checks must never recompute this:
+  // the green/red boundary is jittered per cycle, so a duplicated formula
+  // silently drifts out of step and tests then assert against the wrong phase.
+  phaseOf: (band) => (run ? signalPhase(run.elapsedMs, band.seed) : null),
+  // Cars currently in a row, so automated checks can play like a competent
+  // human (look before stepping out) rather than walking blindly into traffic.
+  carsInRow: (r) => {
+    if (!run) return [];
+    const band = bandAtRow(run.bands, r);
+    if (!band || band.type !== 'road') return [];
+    return bandData(band).cars.filter((c) => c.row === r);
+  },
+};
+
+})();
+</script>
+</body>
+</html>
