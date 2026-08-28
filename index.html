@@ -207,7 +207,7 @@ input[type=range].tier-slider:focus-visible{outline:4px solid #2B2015;outline-of
     <div class="tier-slider-wrap">
       <input type="range" class="tier-slider" id="tier-slider" min="0" max="2" step="1" value="0"
         aria-label="Difficulty tier">
-      <div class="tier-labels"><span>Student</span><span>Poly Student</span><span>Office Worker</span></div>
+      <div class="tier-labels"><span>Primary</span><span>Teenager</span><span>Office Worker</span></div>
     </div>
     <div class="btn-row">
       <button class="btn" id="start-btn" type="button">Start crossing</button>
@@ -549,9 +549,10 @@ const CONFIG = {
     {
       // Earphones in, nothing else. One distraction, learned in isolation:
       // you cannot HEAR traffic, so you have to look for it.
-      id: 'student', name: 'Student', blurb: 'Music on. You will not hear them coming.',
+      id: 'student', name: 'Primary School', blurb: 'Music on. You will not hear them coming.',
       wallCreepSpeed: 0.42,
       trafficDensityMult: 1.0, trafficSpeedMult: 1.0, hazardCarChance: 0.24,
+      playerScale: 0.84,          // a smaller child, dwarfed by the traffic
       distraction: { everyMs: 0, sender: null, fogOfWar: false, calls: false, bossEvents: false },
       // Generous sweep, wide zone: this is where you LEARN the skill check.
       music: { everyMs: 9000, sweepMs: 1500, hitStart: 0.52, hitEnd: 0.86 },
@@ -563,9 +564,10 @@ const CONFIG = {
     {
       // Music AND a phone that will not shut up — two competing demands on
       // the same attention.
-      id: 'poly', name: 'Poly Student', blurb: 'Music, plus Raeann will not stop texting.',
+      id: 'poly', name: 'Teenager', blurb: 'Music, plus Raeann will not stop texting.',
       wallCreepSpeed: 0.56,
-      trafficDensityMult: 1.25, trafficSpeedMult: 1.12, hazardCarChance: 0.42,
+      trafficDensityMult: 1.35, trafficSpeedMult: 1.18, hazardCarChance: 0.42,
+      playerScale: 1.0,
       distraction: { everyMs: 8000, sender: 'raeann', fogOfWar: true, calls: false, bossEvents: false },
       music: { everyMs: 9000, sweepMs: 1000, hitStart: 0.60, hitEnd: 0.80 },
       // A message waits this long before it ages out. Shorter means you have
@@ -581,7 +583,8 @@ const CONFIG = {
       // road — the tier where hesitation itself is the hazard.
       id: 'office', name: 'Office Worker', blurb: 'Music, the boss, and a full cup of kopi.',
       wallCreepSpeed: 0.72,
-      trafficDensityMult: 1.5, trafficSpeedMult: 1.25, hazardCarChance: 0.60,
+      trafficDensityMult: 1.75, trafficSpeedMult: 1.4, hazardCarChance: 0.60,
+      playerScale: 1.0,
       distraction: { everyMs: 5000, sender: 'boss', fogOfWar: true, calls: true, bossEvents: true },
       music: { everyMs: 7000, sweepMs: 700, hitStart: 0.66, hitEnd: 0.78 },
       notificationLifetimeMs: 7000,
@@ -1805,12 +1808,34 @@ function wrapText(ctx, text, maxWidth) {
 }
 
 /* ---- canvas setup ------------------------------------------------------- */
+// The renderer is rasterisation-bound, not CPU-bound: profiling a running game
+// puts ~96% of frame time in the browser's own painting rather than in any of
+// this code. So the thing that actually governs framerate is HOW MANY DEVICE
+// PIXELS get painted each frame, and an uncapped devicePixelRatio is brutal --
+// a phone at dpr 3 turns a 390x844 board into ~3.0 megapixels, and a Retina
+// laptop at 1440x900 into 5.2. Both were being repainted 60 times a second.
+//
+// This art style is flat, chunky and low-detail, so it survives a lower
+// backing-store resolution almost indistinguishably. The budget below keeps
+// the painted area sane on every device: small screens still get their full
+// (capped) ratio, while large windows scale down rather than ballooning.
+const MAX_DPR = 2;
+const PIXEL_BUDGET = 2_400_000;      // device pixels per frame
+
 function setupCanvas(canvas) {
-  const ctx = canvas.getContext('2d');
+  // The board paints an opaque background over the whole canvas, so there is
+  // nothing to blend with underneath. Telling the compositor that lets it skip
+  // per-pixel blending entirely.
+  const ctx = canvas.getContext('2d', { alpha: false });
   const resize = () => {
-    const dpr = window.devicePixelRatio || 1;
     const w = canvas.clientWidth;
     const h = canvas.clientHeight;
+    const area = Math.max(1, w * h);
+    const dpr = Math.max(1, Math.min(
+      window.devicePixelRatio || 1,
+      MAX_DPR,
+      Math.sqrt(PIXEL_BUDGET / area),
+    ));
     canvas.width = Math.round(w * dpr);
     canvas.height = Math.round(h * dpr);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -2066,8 +2091,11 @@ function drawSignalBody(ctx, band, x, y, tile, elapsedMs) {
 // earphones), office worker (lanyard + coffee).
 function drawPlayer(ctx, tier, x, y, tile, lift) {
   const c = tier.colors;
-  const w = tile * 0.56;              // shoulder width
-  const h = tile * 0.47;              // torso height
+  // A primary schooler is genuinely smaller than an adult, which is part of
+  // the point: less visible to drivers, and dwarfed by the traffic.
+  const ps = tier.playerScale || 1;
+  const w = tile * 0.56 * ps;         // shoulder width
+  const h = tile * 0.47 * ps;         // torso height
   const py = y - h / 2 - lift - tile * 0.06;
   const skinLo = darken(c.head, 0.22);
 
@@ -2206,11 +2234,76 @@ function drawPlayer(ctx, tier, x, y, tile, lift) {
 }
 
 /* ---- Singapore streetscape props ---------------------------------------- */
-function drawObstacle(ctx, obstacle, x, y, tile) {
-  const cy = y + tile / 2;
+/* ---- sprite cache --------------------------------------------------------
+   Props are static, identical per kind, and there are well over a hundred on
+   screen at once. Re-running their full draw (several rounded rects, circles
+   and a radial-gradient contact shadow EACH) every frame was one of the
+   largest costs in the renderer. They are rendered once per kind per tile
+   size into a small offscreen canvas and blitted from then on.
+   ------------------------------------------------------------------------- */
+const spriteCache = new Map();
+
+// The static backdrop: page gradient + the board's shadowed base. Rebuilt only
+// when the viewport or board rect actually changes.
+let backdropCanvas = null;
+let backdropKey = '';
+function cachedBackdrop(viewW, viewH, layout, corner) {
+  const key = `${Math.round(viewW)}x${Math.round(viewH)}|${layout.x.toFixed(1)},`
+    + `${layout.y.toFixed(1)},${layout.w.toFixed(1)},${layout.h.toFixed(1)}`;
+  if (backdropCanvas && backdropKey === key) return backdropCanvas;
+
+  backdropCanvas = backdropCanvas || document.createElement('canvas');
+  backdropCanvas.width = Math.max(1, Math.ceil(viewW));
+  backdropCanvas.height = Math.max(1, Math.ceil(viewH));
+  const b = backdropCanvas.getContext('2d');
+  b.setTransform(1, 0, 0, 1, 0, 0);
+  b.clearRect(0, 0, viewW, viewH);
+
+  const bg = b.createRadialGradient(
+    viewW / 2, viewH * 0.42, 10, viewW / 2, viewH * 0.42, Math.max(viewW, viewH) * 0.78,
+  );
+  bg.addColorStop(0, PALETTE.greenLift);
+  bg.addColorStop(0.55, PALETTE.greenMid);
+  bg.addColorStop(1, PALETTE.greenEdge);
+  b.fillStyle = bg;
+  b.fillRect(0, 0, viewW, viewH);
+
+  b.save();
+  b.shadowColor = PALETTE.boardShadow;
+  b.shadowBlur = 26 * layout.scale;
+  b.shadowOffsetY = 10 * layout.scale;
+  fillRoundRect(b, layout.x, layout.y, layout.w, layout.h, corner, PALETTE.boardBase);
+  b.restore();
+
+  backdropKey = key;
+  return backdropCanvas;
+}
+
+// Renders `paint` into an offscreen canvas of `size` px square, with the
+// origin at its centre, and returns it. Keyed so a resize re-renders once.
+function cachedSprite(key, size, paint) {
+  const px = Math.max(2, Math.ceil(size));
+  const id = `${key}@${px}`;
+  let sprite = spriteCache.get(id);
+  if (sprite) return sprite;
+
+  sprite = document.createElement('canvas');
+  sprite.width = px;
+  sprite.height = px;
+  const sctx = sprite.getContext('2d');
+  sctx.translate(px / 2, px / 2);
+  paint(sctx);
+  // Unbounded growth is impossible in practice (a handful of kinds at one or
+  // two tile sizes), but a stray resize loop should never leak either.
+  if (spriteCache.size > 64) spriteCache.clear();
+  spriteCache.set(id, sprite);
+  return sprite;
+}
+
+function paintObstacle(ctx, kind, x, cy, tile) {
   contactShadow(ctx, x, cy + tile * 0.26, tile * 0.3, tile * 0.1, 0.3);
 
-  if (obstacle.kind === 'tree') {
+  if (kind === 'tree') {
     // angsana/rain tree: trunk plus a layered canopy
     fillRoundRect(ctx, x - tile * 0.055, cy - tile * 0.02, tile * 0.11, tile * 0.3,
       tile * 0.03, PALETTE.treeTrunk);
@@ -2220,7 +2313,7 @@ function drawObstacle(ctx, obstacle, x, y, tile) {
     fillCircle(ctx, x - tile * 0.02, cy - tile * 0.26, tile * 0.18, PALETTE.treeCanopyLit);
     return;
   }
-  if (obstacle.kind === 'planter') {
+  if (kind === 'planter') {
     depthRect(ctx, x - tile * 0.26, cy - tile * 0.14, tile * 0.52, tile * 0.34,
       tile * 0.06, PALETTE.planter, 3);
     fillCircle(ctx, x - tile * 0.1, cy - tile * 0.2, tile * 0.13, PALETTE.treeCanopy);
@@ -2228,7 +2321,7 @@ function drawObstacle(ctx, obstacle, x, y, tile) {
     gloss(ctx, x - tile * 0.26, cy - tile * 0.14, tile * 0.52, tile * 0.18, tile * 0.06, 0.3);
     return;
   }
-  if (obstacle.kind === 'bollard') {
+  if (kind === 'bollard') {
     depthRect(ctx, x - tile * 0.09, cy - tile * 0.24, tile * 0.18, tile * 0.5,
       tile * 0.08, PALETTE.bollard, 3);
     ctx.fillStyle = 'rgba(224,59,54,0.85)';
@@ -2247,6 +2340,14 @@ function drawObstacle(ctx, obstacle, x, y, tile) {
 // HDB blocks running down the verges OUTSIDE the board, in viewport space.
 // Deliberately not inside the clip: the board is exactly GRID_COLS wide, so
 // anything drawn in there would cover a playable column.
+
+function drawObstacle(ctx, obstacle, x, y, tile) {
+  const size = tile * 1.4;
+  const sprite = cachedSprite(`obstacle:${obstacle.kind}`, size,
+    (sctx) => paintObstacle(sctx, obstacle.kind, 0, 0, tile));
+  ctx.drawImage(sprite, x - sprite.width / 2, y + tile / 2 - sprite.height / 2);
+}
+
 function boardProjection(layout, cameraRow) {
   const tile = CONFIG.TILE * layout.scale;
   // The doom wall can sit up to WALL_TRAIL_ROWS behind the player, and it must
@@ -2444,8 +2545,6 @@ function drawWall(ctx, state, elapsedMs, board) {
         clipping, not the old all-or-nothing point check on the car's centre.
    ------------------------------------------------------------------------- */
 let fogCanvas = null;
-let carsLayerCanvas = null;
-let carsMaskCanvas = null;
 
 // The fog is nothing but soft gradients, so it is rendered at half resolution
 // and scaled up. At full board size it was ~2M gradient pixels every frame,
@@ -2511,51 +2610,47 @@ function drawVisionCone(ctx, layout, cx, cy, aimRad, radiusPx) {
 // each car sprite that land where the mask is opaque -- a car straddling the
 // cone's edge survives partially, exactly like the mechanic is supposed to
 // work, instead of vanishing or appearing whole based on one centre point.
+// The cone as a real path: the sighted wedge plus the always-lit bubble around
+// the player. Used to CLIP the car layer, which is far cheaper than the old
+// approach of drawing every car onto a full-resolution offscreen canvas and
+// compositing it through an alpha mask each frame (that alone cost ~7ms a
+// frame at 1440x900, and far more on a phone).
+//
+// The clip edge is hard rather than feathered, which is fine: the darkness
+// overlay is drawn AFTER the cars with its own soft gradient, so a car at the
+// cone's edge still fades out rather than ending on a visible line.
+function conePath(cx, cy, aimRad, radiusPx) {
+  const half = (CONFIG.CONE_HALF_ANGLE_DEG + CONFIG.CONE_SOFT_EDGE_DEG * 0.5) * Math.PI / 180;
+  const path = new Path2D();
+  path.moveTo(cx, cy);
+  path.arc(cx, cy, radiusPx, aimRad - half, aimRad + half);
+  path.closePath();
+
+  const nearPx = CONFIG.CONE_NEAR_RADIUS_TILES * (radiusPx / CONFIG.CONE_RADIUS_TILES);
+  path.moveTo(cx + nearPx * 1.5, cy);
+  path.arc(cx, cy, nearPx * 1.5, 0, Math.PI * 2);
+  return path;
+}
+
 function drawCarsInCone(ctx, layout, board, cars, view) {
   const { tile, rowY, colX, firstRow, lastRow } = board;
+  const visible = [];
+  for (const car of cars) {
+    if (car.row < firstRow || car.row > lastRow) continue;
+    visible.push(car);
+  }
+  if (!visible.length) return;
+
   if (view.aimRad === undefined) {
-    for (const car of cars) {
-      if (car.row < firstRow || car.row > lastRow) continue;
-      drawCar(ctx, car, colX(car.x), rowY(car.row) + tile / 2, tile);
-    }
+    for (const car of visible) drawCar(ctx, car, colX(car.x), rowY(car.row) + tile / 2, tile);
     return;
   }
 
-  const w = Math.max(1, Math.ceil(layout.w));
-  const h = Math.max(1, Math.ceil(layout.h));
-  if (!carsLayerCanvas) carsLayerCanvas = document.createElement('canvas');
-  if (carsLayerCanvas.width !== w || carsLayerCanvas.height !== h) {
-    carsLayerCanvas.width = w;
-    carsLayerCanvas.height = h;
-  }
-  const cl = carsLayerCanvas.getContext('2d');
-  cl.setTransform(1, 0, 0, 1, 0, 0);
-  cl.clearRect(0, 0, w, h);
-  cl.globalCompositeOperation = 'source-over';
-  for (const car of cars) {
-    if (car.row < firstRow || car.row > lastRow) continue;
-    drawCar(cl, car, colX(car.x), rowY(car.row) + tile / 2, tile);
-  }
-
-  const mw = Math.max(1, Math.ceil(layout.w * FOG_SCALE));
-  const mh = Math.max(1, Math.ceil(layout.h * FOG_SCALE));
-  if (!carsMaskCanvas) carsMaskCanvas = document.createElement('canvas');
-  if (carsMaskCanvas.width !== mw || carsMaskCanvas.height !== mh) {
-    carsMaskCanvas.width = mw;
-    carsMaskCanvas.height = mh;
-  }
-  const m = carsMaskCanvas.getContext('2d');
-  m.setTransform(FOG_SCALE, 0, 0, FOG_SCALE, 0, 0);
-  m.clearRect(0, 0, layout.w, layout.h);
-  m.globalCompositeOperation = 'source-over';
-  paintConeAlpha(m, colX(view.playerCol), rowY(view.playerRow) + tile / 2,
-    view.aimRad, view.coneRadiusTiles * tile);
-
-  cl.globalCompositeOperation = 'destination-in';
-  cl.drawImage(carsMaskCanvas, 0, 0, w, h);
-  cl.globalCompositeOperation = 'source-over';
-
-  ctx.drawImage(carsLayerCanvas, 0, 0, w, h);
+  ctx.save();
+  ctx.clip(conePath(colX(view.playerCol), rowY(view.playerRow) + tile / 2,
+    view.aimRad, view.coneRadiusTiles * tile));
+  for (const car of visible) drawCar(ctx, car, colX(car.x), rowY(car.row) + tile / 2, tile);
+  ctx.restore();
 }
 
 function drawFrame(ctx, view) {
@@ -2564,26 +2659,17 @@ function drawFrame(ctx, view) {
     hazardByBand, obstacles, coneRadiusTiles,
   } = view;
 
-  const bg = ctx.createRadialGradient(
-    viewW / 2, viewH * 0.42, 10, viewW / 2, viewH * 0.42, Math.max(viewW, viewH) * 0.78,
-  );
-  bg.addColorStop(0, PALETTE.greenLift);
-  bg.addColorStop(0.55, PALETTE.greenMid);
-  bg.addColorStop(1, PALETTE.greenEdge);
-  ctx.fillStyle = bg;
-  ctx.fillRect(0, 0, viewW, viewH);
-
   const layout = boardLayout(viewW, viewH);
   const board = boardProjection(layout, cameraRow);
   const { tile, rowY, colX } = board;
   const corner = 18 * layout.scale;
 
-  ctx.save();
-  ctx.shadowColor = PALETTE.boardShadow;
-  ctx.shadowBlur = 26 * layout.scale;
-  ctx.shadowOffsetY = 10 * layout.scale;
-  fillRoundRect(ctx, layout.x, layout.y, layout.w, layout.h, corner, PALETTE.boardBase);
-  ctx.restore();
+  // The backdrop and the board's shadowed base never change between frames --
+  // only on resize. Repainting a full-viewport radial gradient plus a large
+  // blurred drop shadow 60 times a second is pure waste (shadowBlur is one of
+  // the most expensive things a 2D context does), so both are baked once into
+  // a cached layer and blitted.
+  ctx.drawImage(cachedBackdrop(viewW, viewH, layout, corner), 0, 0, viewW, viewH);
 
   ctx.save();
   roundRectPath(ctx, layout.x, layout.y, layout.w, layout.h, corner);
