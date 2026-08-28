@@ -286,53 +286,53 @@ input[type=range].tier-slider:focus-visible{outline:4px solid #2B2015;outline-of
 // reference it directly.
 const SG_ROAD_SAFETY_QUESTIONS = [
   {
-    text: 'The Green Man starts flashing as you reach the crossing. What should you do?',
-    explain: 'A flashing Green Man means the crossing time is almost up. Starting to cross now '
-      + 'risks getting caught in the middle when it turns red — always wait for the next steady Green Man.',
+    text: 'The Green Man starts flashing. Do you go?',
+    explain: 'Flashing means the time is nearly up. Start now and you risk being '
+      + 'stranded mid-road. Wait for the next one.',
     options: [
       { text: 'Wait for the next Green Man', correct: true },
       { text: 'Run across quickly', correct: false },
-      { text: 'Cross slowly, cars will stop', correct: false },
+      { text: 'Walk across, cars will stop', correct: false },
     ],
   },
   {
-    text: "What's the correct kerb drill before crossing the road?",
-    explain: 'STOP at the kerb, LOOK RIGHT, LOOK LEFT, LOOK RIGHT AGAIN, and CROSS only when it is '
-      + 'safe. Checking both directions more than once catches traffic you missed the first time.',
+    text: "What's the kerb drill?",
+    explain: 'Stop. Look right, look left, look right again. Cross only when it is clear — '
+      + 'the second look right catches what you missed.',
     options: [
-      { text: 'Look right, left, then right again', correct: true },
-      { text: 'Look left only, then cross', correct: false },
-      { text: 'Cross first, then look for traffic', correct: false },
+      { text: 'Right, left, right again', correct: true },
+      { text: 'Left only, then go', correct: false },
+      { text: 'Just cross and watch out', correct: false },
     ],
   },
   {
-    text: 'The Green Man has just come on. What should you do before stepping onto the road?',
-    explain: "A Green Man means it's your turn, not that every driver has actually stopped. Always "
-      + 'confirm vehicles have stopped and keep watching for traffic before you step out.',
+    text: 'Green Man is on. What first?',
+    explain: 'Green means it is your turn, not that drivers have stopped. Check they '
+      + 'actually have before you step out.',
     options: [
-      { text: 'Check that vehicles have stopped and watch for traffic before crossing', correct: true },
-      { text: 'Yes, drivers must always stop', correct: false },
-      { text: "Only need to check once you're halfway across", correct: false },
+      { text: 'Check cars have stopped', correct: true },
+      { text: 'Nothing, drivers must stop', correct: false },
+      { text: 'Look once you are halfway', correct: false },
     ],
   },
   {
-    text: "You're at the kerb about to cross and your phone buzzes. What should you do?",
-    explain: 'Checking your phone divides your attention exactly when you need it most. A message '
-      + 'can always wait until you are safely across — that focus is what actually keeps you safe.',
+    text: 'Your phone buzzes at the kerb. Now what?',
+    explain: 'Your attention is the only thing keeping you safe here. The message can '
+      + 'wait until you are across.',
     options: [
-      { text: 'Avoid using the phone while crossing and focus on traffic', correct: true },
-      { text: "Reply quickly while crossing so it's short", correct: false },
-      { text: 'Answer it, you can watch traffic with peripheral vision', correct: false },
+      { text: 'Leave it until you are across', correct: true },
+      { text: 'Reply quickly while crossing', correct: false },
+      { text: 'Answer, watch traffic sideways', correct: false },
     ],
   },
   {
-    text: "There's no crossing nearby and the road looks quiet. What should you do?",
-    explain: 'Crossing outside a designated crossing removes the protection of signals and the '
-      + 'expectation drivers have of where pedestrians appear. Always use the nearest proper crossing.',
+    text: 'No crossing nearby and the road looks quiet.',
+    explain: 'Away from a crossing you lose the signals and drivers do not expect you. '
+      + 'Walk to the proper one.',
     options: [
-      { text: 'Use the designated pedestrian crossing', correct: true },
-      { text: 'Cross wherever gives the shortest distance', correct: false },
-      { text: 'Cross quickly between parked cars', correct: false },
+      { text: 'Walk to the proper crossing', correct: true },
+      { text: 'Cross here, it is shorter', correct: false },
+      { text: 'Cross between parked cars', correct: false },
     ],
   },
 ];
@@ -456,7 +456,6 @@ const CONFIG = {
   HAZARD_CAR_WARN_MS: 1700,    // warning-triangle lead time before the sweep
 
   // ---- Phone distraction --------------------------------------------------
-  TOAST_DURATION_MS: 1800,          // Young tier: auto-clears, no input possible
   NOTIFICATION_DURATION_MS: 4200,   // reply-required block: time before a miss is scored
   CALL_DURATION_MS: 5200,           // longer block; ends on a reaction tap, not typed reply
   DISTRACTION_LUNGE_ROWS: 0.9,      // trail LOST on a missed/wrong reply. NOT permanent
@@ -488,6 +487,8 @@ const CONFIG = {
   // (render-only — they are still fully simulated and still lethal). A
   // sweeping needle crosses a marked zone; tapping inside it "mutes" the
   // music and restores hearing. Missing it means crossing deaf a while longer.
+  // Defaults only. Each tier overrides these in its own `music` block, so the
+  // check genuinely gets harder as you go up: faster needle, narrower zone.
   MUSIC_SWEEP_MS: 1150,          // needle travel, start to end of the dial
   MUSIC_HIT_START: 0.58,         // hit zone opens here, as a fraction of the sweep
   MUSIC_HIT_END: 0.82,           // ...and closes here
@@ -551,8 +552,9 @@ const CONFIG = {
       id: 'student', name: 'Student', blurb: 'Music on. You will not hear them coming.',
       wallCreepSpeed: 0.42,
       trafficDensityMult: 1.0, trafficSpeedMult: 1.0, hazardCarChance: 0.24,
-      distraction: { everyMs: 0, replyChance: 0, sender: null, fogOfWar: false, calls: false, bossEvents: false },
-      music: { everyMs: 9000 },
+      distraction: { everyMs: 0, sender: null, fogOfWar: false, calls: false, bossEvents: false },
+      // Generous sweep, wide zone: this is where you LEARN the skill check.
+      music: { everyMs: 9000, sweepMs: 1500, hitStart: 0.52, hitEnd: 0.86 },
       coffee: false,
       // School uniform: white shirt, navy shorts, backpack, earphones in.
       look: 'student',
@@ -564,8 +566,11 @@ const CONFIG = {
       id: 'poly', name: 'Poly Student', blurb: 'Music, plus Raeann will not stop texting.',
       wallCreepSpeed: 0.56,
       trafficDensityMult: 1.25, trafficSpeedMult: 1.12, hazardCarChance: 0.42,
-      distraction: { everyMs: 8000, replyChance: 0.6, sender: 'raeann', fogOfWar: true, calls: false, bossEvents: false },
-      music: { everyMs: 11000 },
+      distraction: { everyMs: 8000, sender: 'raeann', fogOfWar: true, calls: false, bossEvents: false },
+      music: { everyMs: 9000, sweepMs: 1000, hitStart: 0.60, hitEnd: 0.80 },
+      // A message waits this long before it ages out. Shorter means you have
+      // to get yourself to safety sooner, not just eventually.
+      notificationLifetimeMs: 10000,
       coffee: false,
       // Blue hair, oversized tee, earphones in.
       look: 'poly',
@@ -577,9 +582,14 @@ const CONFIG = {
       id: 'office', name: 'Office Worker', blurb: 'Music, the boss, and a full cup of kopi.',
       wallCreepSpeed: 0.72,
       trafficDensityMult: 1.5, trafficSpeedMult: 1.25, hazardCarChance: 0.60,
-      distraction: { everyMs: 5000, replyChance: 1.0, sender: 'boss', fogOfWar: true, calls: true, bossEvents: true },
-      music: { everyMs: 13000 },
+      distraction: { everyMs: 5000, sender: 'boss', fogOfWar: true, calls: true, bossEvents: true },
+      music: { everyMs: 7000, sweepMs: 700, hitStart: 0.66, hitEnd: 0.78 },
+      notificationLifetimeMs: 7000,
       coffee: true,
+      // The office worker's own pressure: a full cup that will not wait, and
+      // a boss who will not either. Both punish exactly the thing that gets
+      // pedestrians hurt — standing about in a live carriageway.
+      coffeeGraceMs: 1000,
       // Shirt and slacks, staff lanyard, coffee in hand.
       look: 'office',
       colors: { body: '#5B7FA8', trim: '#2F3A4A', head: '#E8B78E', hair: '#1E2632', accent: '#F2B33D' },
@@ -1022,13 +1032,14 @@ function coneRadiusFor(fogOfWarActive) {
    event goes live — resolveDistraction() only ever needs options[].correct,
    so it stays testable with synthetic data, never real copy.
    ------------------------------------------------------------------------- */
-// Kind and reaction window are one decision, not two: a call blocks longest, a
-// reply-required notification less, and a Young-tier toast least of all.
-// Keeping them together means the two can never drift out of step.
-function distractionTiming(isCall, repliesEnabled) {
-  if (isCall) return { kind: 'call', durationMs: CONFIG.CALL_DURATION_MS };
-  if (repliesEnabled) return { kind: 'notification', durationMs: CONFIG.NOTIFICATION_DURATION_MS };
-  return { kind: 'toast', durationMs: CONFIG.TOAST_DURATION_MS };
+// Kind and reaction window are one decision, not two, so they can never drift
+// out of step. There is no longer a dismiss-anywhere "toast": a notification
+// you could swat away mid-crossing taught exactly the habit the game is
+// against, so EVERY message now queues and waits until the player is safe.
+function distractionTiming(isCall) {
+  return isCall
+    ? { kind: 'call', durationMs: CONFIG.CALL_DURATION_MS }
+    : { kind: 'notification', durationMs: CONFIG.NOTIFICATION_DURATION_MS };
 }
 
 function distractionSchedule(tier, worldSeed) {
@@ -1044,15 +1055,15 @@ function distractionSchedule(tier, worldSeed) {
     // calls never draws for one, and a call never draws again for a reply.
     // The draw order is what makes a seeded schedule reproducible.
     const isCall = d.calls === true && rng() < 0.22;
-    const requiresReply = isCall || rng() < d.replyChance;
-    const { kind, durationMs } = distractionTiming(isCall, d.replyChance > 0);
+    const { kind, durationMs } = distractionTiming(isCall);
 
     events.push({
       startMs: t,
       durationMs,
       kind,
-      sender: requiresReply ? d.sender : 'system',
-      requiresReply,
+      sender: d.sender,
+      // Always true now: every message is answered deliberately, from safety.
+      requiresReply: true,
       fogOfWar: d.fogOfWar === true && (isCall || rng() < 0.5),
     });
 
@@ -1078,8 +1089,7 @@ function resolveDistraction(state, event, action) {
   if (typeof action === 'number' && !(event.options && event.options.length)) {
     throw new Error('resolveDistraction: numeric action but event carries no options');
   }
-  const succeeded = event.kind === 'toast'
-    || action === 'dismissed'
+  const succeeded = action === 'dismissed'
     || (typeof action === 'number' && event.options[action]
         && event.options[action].correct === true);
 
@@ -1165,7 +1175,14 @@ function musicCheckSchedule(tier, worldSeed) {
   let t = m.everyMs * (0.5 + rng() * 0.5);      // first track isn't instant
 
   for (let i = 0; i < 400; i++) {
-    events.push({ startMs: t, durationMs: CONFIG.MUSIC_SWEEP_MS });
+    // The window travels ON the event, so the renderer and the hit test read
+    // the same numbers and a tier's difficulty can never drift between them.
+    events.push({
+      startMs: t,
+      durationMs: m.sweepMs ?? CONFIG.MUSIC_SWEEP_MS,
+      hitStart: m.hitStart ?? CONFIG.MUSIC_HIT_START,
+      hitEnd: m.hitEnd ?? CONFIG.MUSIC_HIT_END,
+    });
     t += m.everyMs * (0.75 + rng() * 0.5);
   }
   return events;
@@ -1186,8 +1203,10 @@ function musicCheckProgress(ev, elapsedMs) {
 }
 
 function musicCheckInHitWindow(ev, elapsedMs) {
+  if (!ev) return false;
   const p = musicCheckProgress(ev, elapsedMs);
-  return p >= CONFIG.MUSIC_HIT_START && p <= CONFIG.MUSIC_HIT_END;
+  return p >= (ev.hitStart ?? CONFIG.MUSIC_HIT_START)
+    && p <= (ev.hitEnd ?? CONFIG.MUSIC_HIT_END);
 }
 
 // Hitting the check is a good action but a small one: it costs nothing and
@@ -1223,7 +1242,8 @@ function resolveMusicCheck(state, hit) {
 // Pure predicate: main.js owns the "how long have I been on this road band"
 // clock, this decides whether that is now a spill.
 function coffeeSpillDue(tier, onRoad, dwellMs) {
-  return !!(tier.coffee && onRoad && dwellMs >= CONFIG.COFFEE_GRACE_MS);
+  return !!(tier.coffee && onRoad
+    && dwellMs >= (tier.coffeeGraceMs ?? CONFIG.COFFEE_GRACE_MS));
 }
 
 function resolveCoffeeSpill(state) {
@@ -2759,9 +2779,16 @@ function drawHud(ctx, view, layout) {
     ctx.fillStyle = `rgba(224,59,54,${view.flash * 0.36})`;
     ctx.fillRect(0, 0, viewW, viewH);
   }
+  // Flourishes are STACKED, not drawn on top of each other. Two events landing
+  // in the same instant (muting the music while a combo lands, say) used to
+  // print straight over one another and read as one garbled word.
+  const flourishSize = Math.max(18, Math.min(34, layout.w * 0.055));
+  const lineH = flourishSize * 1.35;
   for (const f of view.flourishes) {
-    chunkyText(ctx, f.text, layout.x + layout.w / 2, layout.y + layout.h * 0.42 - f.t * 60,
-      Math.max(20, layout.w * 0.075), `rgba(250,247,236,${1 - f.t})`);
+    chunkyText(ctx, f.text,
+      layout.x + layout.w / 2,
+      layout.y + layout.h * 0.42 - f.t * 60 + (f.slot || 0) * lineH,
+      flourishSize, `rgba(250,247,236,${1 - f.t})`);
   }
 
   return { pauseHit: { x: layout.x + layout.w - pauseR * 2, y, w: pauseR * 2, h }, badgeHit };
@@ -2796,8 +2823,12 @@ function drawMusicCheck(ctx, view, ev, progress, inWindow) {
   fillRoundRect(ctx, trackX, trackY, trackW, trackH, trackH / 2, 'rgba(0,0,0,0.55)');
 
   // the hit zone
-  const zx = trackX + trackW * CONFIG.MUSIC_HIT_START;
-  const zw = trackW * (CONFIG.MUSIC_HIT_END - CONFIG.MUSIC_HIT_START);
+  // Read off the EVENT, not the global default, so a harder tier's narrower
+  // zone is actually what gets drawn.
+  const hitStart = ev.hitStart ?? CONFIG.MUSIC_HIT_START;
+  const hitEnd = ev.hitEnd ?? CONFIG.MUSIC_HIT_END;
+  const zx = trackX + trackW * hitStart;
+  const zw = trackW * (hitEnd - hitStart);
   fillRoundRect(ctx, zx, trackY, zw, trackH, trackH / 2,
     inWindow ? PALETTE.signalGreen : 'rgba(90,168,112,0.55)');
 
@@ -2807,25 +2838,6 @@ function drawMusicCheck(ctx, view, ev, progress, inWindow) {
   ctx.shadowColor = 'rgba(0,0,0,0.6)';
   ctx.shadowBlur = 6;
   fillRoundRect(ctx, nx - 2.5, trackY - trackH * 0.55, 5, trackH * 2.1, 2.5, '#FAF5E6');
-  ctx.restore();
-}
-
-/* ---- small toast (Young tier only — auto-clears, no input possible) ------ */
-function drawToast(ctx, view, progress, reducedMotion) {
-  const layout = boardLayout(view.viewW, view.viewH);
-  const w = layout.w * 0.7;
-  const h = Math.max(56, layout.h * 0.12);
-  const x = layout.x + (layout.w - w) / 2;
-  const slide = reducedMotion ? 0 : (1 - progress) * (h + 24);
-  const y = layout.y + layout.h * 0.22 - slide;
-
-  ctx.save();
-  ctx.globalAlpha = reducedMotion ? progress : 1;
-  contactShadow(ctx, x + w / 2, y + h + 5, w * 0.42, 8, 0.3);
-  depthRect(ctx, x, y, w, h, 14, '#F4F1E8', 4);
-  fillRoundRect(ctx, x + 12, y + h / 2 - 12, 24, 24, 7, '#8CA8B8');
-  chunkyText(ctx, 'Notification', x + 46, y + h / 2, Math.max(12, h * 0.28), '#2B2015', 'left');
-  gloss(ctx, x, y, w, h, 14, 0.46);
   ctx.restore();
 }
 
@@ -3042,6 +3054,17 @@ function hazardHorn() {
   } catch { /* audio is a nicety, never a blocker */ }
 }
 
+// A floating status word. Each gets its own STACK SLOT, held for its whole
+// life, so two landing together (muting the music as a combo lands) sit on
+// separate lines instead of printing over each other -- and a slot freeing up
+// never makes the ones still on screen jump.
+function flourish(text) {
+  const taken = new Set(run.flourishes.map((f) => f.slot));
+  let slot = 0;
+  while (taken.has(slot)) slot++;
+  run.flourishes.push({ text, t: 0, slot });
+}
+
 function blip(freq, vol = 0.07) {
   play([{
     freq, type: 'triangle', peak: vol, attackSec: 0.015, releaseSec: 0.2, stopSec: 0.22,
@@ -3252,9 +3275,6 @@ function visibleBands() {
 
 /* ---- phone distraction ---------------------------------------------------- */
 function pickContent(event) {
-  if (event.kind === 'toast' || event.sender === 'system') {
-    return { text: 'New notification', options: [] };
-  }
   const poolId = event.kind === 'call' ? 'callReactions' : event.sender;
   const pool = CONFIG.MESSAGE_POOLS[poolId];
   const entry = pool[Math.floor(Math.random() * pool.length)];
@@ -3284,6 +3304,12 @@ function promptSpot() {
   };
 }
 
+// How long an unread message waits before ageing out. Per tier: the office
+// worker's boss will not wait as long as anyone else's.
+function notificationLifetimeMs() {
+  return run.tier.notificationLifetimeMs ?? CONFIG.NOTIFICATION_LIFETIME_MS;
+}
+
 function enqueuePending(event) {
   run.pendingNotifications.push({
     event,
@@ -3292,7 +3318,7 @@ function enqueuePending(event) {
     // Its own clock, counted down by the approach ring. Independent of the
     // scheduled event's duration: that was how long the OLD blocking card
     // stayed up, which is a different question entirely.
-    expiresAtMs: run.elapsedMs + CONFIG.NOTIFICATION_LIFETIME_MS,
+    expiresAtMs: run.elapsedMs + notificationLifetimeMs(),
   });
 }
 
@@ -3333,11 +3359,12 @@ function updateDistraction() {
       if (run.elapsedMs >= resolvedAt + CONFIG.EXPLANATION_REVEAL_MS) run.activeBlock = null;
       return;
     }
-    // Only a toast (or a dismiss-only notification, sender 'system') is ever
-    // assigned here directly -- both are non-blocking and always succeed, so
-    // there is nothing to defer. Anything reply-required goes through the
-    // pending queue below instead.
-    if (run.elapsedMs >= event.startMs + event.durationMs) settleDistraction('timedOut');
+    // An opened card times out on its own reaction window. Nothing is ever
+    // assigned to activeBlock directly any more -- every message reaches it
+    // through the pending queue and a deliberate open.
+    if (run.elapsedMs >= (run.activeBlock.openedAtMs ?? event.startMs) + event.durationMs) {
+      settleDistraction('timedOut');
+    }
     return;                       // one distraction at a time
   }
 
@@ -3352,10 +3379,6 @@ function updateDistraction() {
   const scheduled = activeDistraction(run.schedule, run.elapsedMs);
   if (scheduled && scheduled.startMs > run.lastScheduledStart) {
     run.lastScheduledStart = scheduled.startMs;
-    if (!scheduled.requiresReply) {
-      run.activeBlock = { event: scheduled, content: pickContent(scheduled) };
-      return;
-    }
     enqueuePending(scheduled);
   }
 
@@ -3408,7 +3431,7 @@ function updateMusic() {
       run.state = resolveMusicCheck(run.state, false);
       run.musicDeafUntilMs = run.elapsedMs + CONFIG.MUSIC_DEAF_MS;
       run.activeMusic = null;
-      run.flourishes.push({ text: 'MISSED — STILL DEAF', t: 0 });
+      flourish('MISSED — STILL DEAF');
       blip(150, 0.08);
     }
   } else if (run.activeMusic && run.activeMusic.resolved) {
@@ -3431,12 +3454,12 @@ function tryMusicCheck() {
   if (hit) {
     run.activeMusic = { ...run.activeMusic, resolved: true, clearAtMs: run.elapsedMs + 260 };
     run.musicDeafUntilMs = 0;                       // hearing restored immediately
-    run.flourishes.push({ text: 'MUTED', t: 0 });
+    flourish('MUTED');
     blip(760, 0.09);
   } else {
     run.musicDeafUntilMs = run.elapsedMs + CONFIG.MUSIC_DEAF_MS;
     run.activeMusic = null;
-    run.flourishes.push({ text: 'MISSED — STILL DEAF', t: 0 });
+    flourish('MISSED — STILL DEAF');
     blip(150, 0.08);
   }
   return true;
@@ -3480,7 +3503,7 @@ function updateCoffee(dt) {
   // keeps costing, but not every single frame.
   run.state = resolveCoffeeSpill(run.state);
   run.roadDwellMs = 0;
-  run.flourishes.push({ text: 'COFFEE SPILLED', t: 0 });
+  flourish('COFFEE SPILLED');
   blip(210, 0.07);
 }
 
@@ -3527,7 +3550,7 @@ function onCellEntered() {
   if (next.outcome === 'legal') {
     run.state = applyOutcome(run.state, 'legal');
     blip(720, 0.09);
-    run.flourishes.push({ text: `COMBO x${run.state.combo}`, t: 0 });
+    flourish(`COMBO x${run.state.combo}`);
   } else if (next.outcome === 'violation') {
     run.state = applyOutcome(run.state, 'violation');
     run.flash = 1;
@@ -3687,7 +3710,7 @@ function draw(viewW, viewH) {
     promptUrgency: run.pendingNotifications[0]
       ? Math.max(0, Math.min(1,
         1 - (run.pendingNotifications[0].expiresAtMs - run.elapsedMs)
-          / CONFIG.NOTIFICATION_LIFETIME_MS))
+          / notificationLifetimeMs()))
       : 0,
     // Render-only, exactly like the vision cone: the cars are still there,
     // still moving, still lethal — you simply cannot hear them coming.
@@ -3697,19 +3720,15 @@ function draw(viewW, viewH) {
   pauseHit = frameHits.pauseHit;
   badgeHit = frameHits.badgeHit;
 
-  // A toast is display-only, so it leaves no hit boxes behind for the pointer
-  // handler; anything else is only tappable while it is actually on screen.
+  // A card is only tappable while it is actually on screen.
   distractionHits = null;
   if (run.activeBlock && run.phase === 'playing') {
     const { event, content, resolved, openedAtMs } = run.activeBlock;
     // A deliberately-opened notification animates in from the moment it was
     // opened, not from whenever it originally arrived in the queue.
     const progress = Math.min(1, (run.elapsedMs - (openedAtMs ?? event.startMs)) / 180);
-    if (event.kind === 'toast') {
-      drawToast(ctx, view, progress, reducedMotion);
-    } else {
-      distractionHits = drawDistractionBlock(ctx, view, { event, content, resolved, progress }, reducedMotion);
-    }
+    distractionHits = drawDistractionBlock(ctx, view,
+      { event, content, resolved, progress }, reducedMotion);
   }
 
   // The music dial sits above everything: it is time-critical, and a card
