@@ -498,13 +498,21 @@ const CONFIG = {
   MUSIC_DEAF_MS: 3600,           // how long cars stay hidden after a missed check
   MUSIC_MISS_LUNGE_ROWS: 0.6,    // leash lost on a missed check (< a wrong reply)
 
-  // ---- Coffee (Office Worker only) ---------------------------------------
-  // A full cup in one hand: hesitate mid-road and it slops over your hand,
-  // which costs you a beat you cannot afford. Purely a pressure mechanic —
-  // it never kills on its own, it just punishes dithering in the carriageway.
-  COFFEE_EVERY_MS: 11000,        // how often the cup is at risk
-  COFFEE_GRACE_MS: 1400,         // time on a road band before it spills
-  COFFEE_SPILL_LUNGE_ROWS: 0.5,  // leash lost per spill
+  // ---- Stress -------------------------------------------------------------
+  // Unread messages do not just sit there: they nag. Stress climbs for every
+  // message left waiting and falls once your inbox is clear. Let it max out
+  // and you are OVERWHELMED — attention tunnels and you stop registering
+  // traffic entirely, exactly as if music were deafening you.
+  //
+  // The two are deliberately the same failure state: divided attention is
+  // divided attention, whether the cause is a song or a pile of unread
+  // messages. Hysteresis (recover well below overwhelm) stops it flickering
+  // on and off, and guarantees a real recovery window rather than a player
+  // being blind more or less permanently on the hardest tier.
+  STRESS_RISE_PER_SEC: 0.30,     // per unread message, per second
+  STRESS_FALL_PER_SEC: 0.55,     // once nothing is waiting
+  STRESS_OVERWHELM: 1.0,         // at or above this, attention tunnels
+  STRESS_RECOVER: 0.55,          // ...and only clears once it falls back here
 
   // ---- Tunnel vision cone (Project Zomboid-style directional sight) --------
   // The player only truly sees inside a cone they aim with the cursor (or by
@@ -559,7 +567,6 @@ const CONFIG = {
       distraction: { everyMs: 0, sender: null, fogOfWar: false, calls: false, bossEvents: false },
       // Generous sweep, wide zone: this is where you LEARN the skill check.
       music: { everyMs: 9000, sweepMs: 1500, hitStart: 0.52, hitEnd: 0.86 },
-      coffee: false,
       // School uniform: white shirt, navy shorts, backpack, earphones in.
       look: 'student',
       colors: { body: '#F4F1E8', trim: '#2C3E70', head: '#F2C79A', hair: '#2A1B12', accent: '#2C3E70' },
@@ -576,7 +583,6 @@ const CONFIG = {
       // A message waits this long before it ages out. Shorter means you have
       // to get yourself to safety sooner, not just eventually.
       notificationLifetimeMs: 10000,
-      coffee: false,
       // Blue hair, oversized tee, earphones in.
       look: 'poly',
       colors: { body: '#2E2A38', trim: '#1E1B26', head: '#F2C79A', hair: '#4E8BD8', accent: '#E5533D' },
@@ -591,12 +597,9 @@ const CONFIG = {
       distraction: { everyMs: 5000, sender: 'boss', fogOfWar: true, calls: true, bossEvents: true },
       music: { everyMs: 7000, sweepMs: 700, hitStart: 0.66, hitEnd: 0.78 },
       notificationLifetimeMs: 7000,
-      coffee: true,
-      // The office worker's own pressure: a full cup that will not wait, and
-      // a boss who will not either. Both punish exactly the thing that gets
-      // pedestrians hurt — standing about in a live carriageway.
-      coffeeGraceMs: 1000,
-      // Shirt and slacks, staff lanyard, coffee in hand.
+      // The office worker's own pressure: a boss who will not wait. The
+      // shortest message fuse of any tier, so stress builds fastest here.
+      // Shirt and slacks, staff lanyard.
       look: 'office',
       colors: { body: '#5B7FA8', trim: '#2F3A4A', head: '#E8B78E', hair: '#1E2632', accent: '#F2B33D' },
     },
@@ -788,7 +791,7 @@ function createTelemetry() {
     callsAnswered: 0, callsMissed: 0,
     bossEventsMissed: 0,
     musicChecksHit: 0, musicChecksMissed: 0,
-    coffeeSpills: 0,
+    overwhelmedSpells: 0,
   };
 }
 
@@ -824,6 +827,10 @@ function createState(tierIndex, worldSeed) {
     trailRows: CONFIG.WALL_TRAIL_ROWS,
     trailTarget: CONFIG.WALL_TRAIL_ROWS,
     wallSpeedMult: 1,
+    // How much the unread pile is nagging (0..1.4), and whether it has tipped
+    // into full attention tunnelling. See stepStress.
+    stress: 0,
+    overwhelmed: false,
     telemetry: createTelemetry(),
   };
 }
@@ -1239,29 +1246,35 @@ function resolveMusicCheck(state, hit) {
   };
 }
 
-/* ---- Coffee (Office Worker only) -----------------------------------------
-   Not a threat to your life, a threat to your tempo: linger on a road band
-   with a full cup and it slops over your hand. It exists to punish exactly
-   the behaviour that gets pedestrians hurt — stopping to dither in the middle
-   of a live carriageway instead of clearing it.
+/* ---- Stress --------------------------------------------------------------
+   A single number tracking how much your phone is nagging at you. It rises
+   with every message left unread and falls once the queue is clear. Max it
+   out and attention tunnels: traffic stops registering, the same failure
+   state as being deafened by your own music.
    ------------------------------------------------------------------------- */
-// Pure predicate: main.js owns the "how long have I been on this road band"
-// clock, this decides whether that is now a spill.
-function coffeeSpillDue(tier, onRoad, dwellMs) {
-  return !!(tier.coffee && onRoad
-    && dwellMs >= (tier.coffeeGraceMs ?? CONFIG.COFFEE_GRACE_MS));
+function stepStress(state, dtSec, pendingCount) {
+  const delta = pendingCount > 0
+    ? CONFIG.STRESS_RISE_PER_SEC * pendingCount * dtSec
+    : -CONFIG.STRESS_FALL_PER_SEC * dtSec;
+  const stress = Math.max(0, Math.min(1.4, state.stress + delta));
+
+  // Hysteresis: tip over at STRESS_OVERWHELM, recover only once back down at
+  // STRESS_RECOVER. Without the gap it would strobe on the threshold.
+  let overwhelmed = state.overwhelmed;
+  let telemetry = state.telemetry;
+  if (!overwhelmed && stress >= CONFIG.STRESS_OVERWHELM) {
+    overwhelmed = true;
+    telemetry = { ...telemetry, overwhelmedSpells: telemetry.overwhelmedSpells + 1 };
+  } else if (overwhelmed && stress <= CONFIG.STRESS_RECOVER) {
+    overwhelmed = false;
+  }
+
+  return { ...state, stress, overwhelmed, telemetry };
 }
 
-function resolveCoffeeSpill(state) {
-  return {
-    ...state,
-    trailTarget: Math.max(CONFIG.WALL_MIN_TRAIL_ROWS,
-      state.trailTarget - CONFIG.COFFEE_SPILL_LUNGE_ROWS),
-    telemetry: {
-      ...state.telemetry,
-      coffeeSpills: state.telemetry.coffeeSpills + 1,
-    },
-  };
+// Attention has tunnelled: traffic is no longer being registered at all.
+function isOverwhelmed(state) {
+  return !!state.overwhelmed;
 }
 
 /* ---- Death causes --------------------------------------------------------
@@ -2874,6 +2887,54 @@ function drawMessagePrompt(ctx, layout, opts) {
   return { x: cx - r, y: cy - r, w: r * 2, h: r * 2 };
 }
 
+// The post-answer lesson, floating and non-blocking: readable while walking,
+// which is exactly the behaviour the game wants to reward.
+function drawLessonBanner(ctx, view, lesson) {
+  const layout = boardLayout(view.viewW, view.viewH);
+  const w = Math.min(layout.w * 0.82, 460);
+  const x = layout.x + (layout.w - w) / 2;
+
+  ctx.font = `13px ${FONT}`;
+  const lines = wrapText(ctx, lesson.text, w - 34);
+  const h = lines.length * 19 + 34;
+  const y = layout.y + Math.max(10, layout.h * 0.03);
+
+  ctx.save();
+  contactShadow(ctx, x + w / 2, y + h + 4, w * 0.4, 7, 0.3);
+  fillRoundRect(ctx, x, y, w, h, 12, 'rgba(28,23,16,0.93)');
+  fillRoundRect(ctx, x, y, 4, h, 2,
+    lesson.correct ? PALETTE.signalGreen : PALETTE.signalRed);
+  chunkyText(ctx, lesson.correct ? 'Correct' : 'Not quite', x + 16, y + 15, 13,
+    lesson.correct ? '#8FE0A6' : '#FFA79F', 'left');
+  ctx.font = `13px ${FONT}`;
+  ctx.fillStyle = '#F2EBDC';
+  ctx.textAlign = 'left';
+  let ly = y + 34;
+  for (const line of lines) { ctx.fillText(line, x + 16, ly); ly += 19; }
+  ctx.restore();
+}
+
+// How close the unread pile is to tipping attention over entirely.
+function drawStressMeter(ctx, view, x, y, w, h) {
+  const stress = Math.max(0, Math.min(1, view.stress || 0));
+  const over = !!view.overwhelmed;
+  fillRoundRect(ctx, x, y, w, h, h / 2, 'rgba(20,16,11,0.72)');
+
+  const hot = stress > 0.75 || over;
+  fillRoundRect(ctx, x + 2, y + 2, Math.max(0, (w - 4) * stress), h - 4, (h - 4) / 2,
+    over ? PALETTE.signalRed : hot ? '#E8973C' : '#6FB4D6');
+  // The label has to fit INSIDE the bar on a narrow phone HUD, so measure it
+  // and shrink (then shorten) rather than letting it spill out either side.
+  const label = over ? 'OVERWHELMED' : 'STRESS';
+  let size = Math.max(8.5, h * 0.6);
+  ctx.font = `${size}px ${FONT}`;
+  if (ctx.measureText(label).width > w - 10) {
+    size = Math.max(7, size * (w - 10) / ctx.measureText(label).width);
+  }
+  chunkyText(ctx, label, x + w / 2, y + h / 2, size,
+    over ? '#FFE7E4' : 'rgba(247,243,231,0.85)');
+}
+
 function drawHud(ctx, view, layout) {
   const { state, viewW, viewH } = view;
   const h = Math.max(40, Math.min(56, layout.w * 0.115));
@@ -2884,6 +2945,16 @@ function drawHud(ctx, view, layout) {
   pill(ctx, layout.x, y, pillW, h, 'DISTANCE', String(view.distance));
   pill(ctx, layout.x + pillW + 10, y, pillW, h, 'COMBO', `x${state.combo}`);
   pauseButton(ctx, layout.x + layout.w - pauseR, y + h / 2, pauseR, view.paused);
+
+  // Stress sits on the HUD row itself, in the gap between the score pills and
+  // the pause button. Tucking it under the pills overlapped the board's edge.
+  const meterX = layout.x + pillW * 2 + 26;
+  const meterW = Math.max(90, Math.min(220,
+    layout.x + layout.w - pauseR * 2 - 20 - meterX));
+  if (meterW > 70) {
+    const meterH = Math.max(15, h * 0.42);
+    drawStressMeter(ctx, view, meterX, y + (h - meterH) / 2, meterW, meterH);
+  }
 
   // The unread-message prompt is no longer part of the HUD — it lands on the
   // board itself (see drawMessagePrompt, called from drawFrame).
@@ -2971,7 +3042,7 @@ const DISMISS_HINT_H = 46;   // space the "tap to dismiss" line occupies instead
 // Returns hit boxes in VIEWPORT space: { dismiss } for a dismiss-only event,
 // or { options: [...] } for one requiring a reply.
 function drawDistractionBlock(ctx, view, block, reducedMotion) {
-  const { event, content, resolved } = block;
+  const { event, content } = block;
   const { viewW, viewH } = view;
   const progress = reducedMotion ? block.progress : Math.min(1, block.progress * 1.6);
 
@@ -2991,9 +3062,10 @@ function drawDistractionBlock(ctx, view, block, reducedMotion) {
   const OPTION_LINE_H = 19;
   const OPTION_MIN_H = 46;
   const optionGap = 10;
-  // Once answered, a brief explanation replaces the options -- that reveal is
-  // the whole point of the road-safety content, especially on a wrong answer.
-  const showingExplain = !!resolved && !!content.explain;
+  // The card no longer shows the explanation: it closes the instant you
+  // answer and the lesson floats free (drawLessonBanner), so the player gets
+  // their feet back immediately instead of being pinned in place reading.
+  const showingExplain = false;
   const showOptions = !showingExplain && event.requiresReply;
 
   // Measured at the body size the lines are actually drawn at, below.
@@ -3070,29 +3142,6 @@ function drawDistractionBlock(ctx, view, block, reducedMotion) {
       hits.options.push({ x: ox, y: oy, w: ow, h: box.h });
       oy += box.h + optionGap;
     });
-  } else if (showingExplain) {
-    // The reveal after answering. This is the actual educational payload of
-    // the whole mechanic, so it gets a tinted panel of its own rather than
-    // being dropped in as another grey paragraph.
-    const wasRight = resolved && resolved.correct;
-    const ox = cardX + padding;
-    const ow = cardW - padding * 2;
-    const panelH = explainLines.length * 20 + 34;
-    fillRoundRect(ctx, ox, oy, ow, panelH, 12,
-      wasRight ? 'rgba(58,142,84,0.16)' : 'rgba(224,59,54,0.14)');
-    fillRoundRect(ctx, ox, oy, 4, panelH, 2,
-      wasRight ? PALETTE.signalGreen : PALETTE.signalRed);
-    chunkyText(ctx, wasRight ? 'Correct' : 'Not quite', ox + 14, oy + 15, 13.5,
-      wasRight ? '#2F6B44' : '#A5342F', 'left');
-    ctx.font = `13px ${FONT}`;
-    ctx.fillStyle = '#2B2015';
-    ctx.textAlign = 'left';
-    let ey = oy + 34;
-    for (const line of explainLines) {
-      ctx.fillText(line, ox + 14, ey);
-      ey += 20;
-    }
-    hits.dismiss = { x: cardX, y: cardY, w: cardW, h: cardH };
   } else {
     chunkyText(ctx, 'tap or swipe to dismiss', cardX + cardW / 2, oy + 14, 13,
       'rgba(43,32,21,0.55)');
@@ -3300,14 +3349,13 @@ function newRun(tierIndex) {
     hazardHonked: new Map(),           // bandIndex -> hazard cycle index
     hazardHonkCount: 0,
 
-    // Coffee (office tier): how long the player has been stood on a road band.
-    roadDwellMs: 0,
-    lastSpillMs: -Infinity,
+    // The post-answer lesson banner: non-blocking, fades on its own.
+    lesson: null,
 
     // Phone distraction.
     schedule: distractionSchedule(tier, worldSeed),
     lastScheduledStart: -1,
-    activeBlock: null,                 // { event, content, resolved?, resolvedAt?, openedAtMs? } | null
+    activeBlock: null,                 // { event, content, openedAtMs } | null
     // Reply-required notifications queue here instead of interrupting a
     // crossing — see updateDistraction / openPendingNotification.
     pendingNotifications: [],          // [{ event, content }], oldest first
@@ -3455,7 +3503,7 @@ function openPendingNotification() {
 }
 
 function settleDistraction(action) {
-  if (!run || !run.activeBlock || run.activeBlock.resolved) return;
+  if (!run || !run.activeBlock) return;
   const before = run.state;
   const { event, content } = run.activeBlock;
   // The SHUFFLED options the player actually saw live on `content`; the
@@ -3465,21 +3513,28 @@ function settleDistraction(action) {
   run.state = resolveDistraction(before, { ...event, options: content.options }, action);
   const failed = run.state.telemetry.notificationsMissed > before.telemetry.notificationsMissed;
   if (failed) { run.flash = Math.max(run.flash, 0.7); blip(180, 0.1); } else { blip(620, 0.08); }
+
+  // The card closes the INSTANT you answer -- you get your feet back
+  // immediately rather than being pinned in place reading. The lesson is not
+  // lost though: it floats up as a non-blocking banner you can read while
+  // walking, which is the whole point (the message could wait; the road
+  // cannot). Holding the player still to read is the same mistake the game
+  // is arguing against.
+  run.activeBlock = null;
   if (content.explain) {
-    // A brief reveal before the card clears -- see EXPLANATION_REVEAL_MS.
-    run.activeBlock = { ...run.activeBlock, resolved: { correct: !failed }, resolvedAt: run.elapsedMs };
-  } else {
-    run.activeBlock = null;
+    run.lesson = {
+      text: content.explain,
+      correct: !failed,
+      untilMs: run.elapsedMs + CONFIG.EXPLANATION_REVEAL_MS,
+    };
   }
 }
 
 function updateDistraction() {
+  if (run.lesson && run.elapsedMs >= run.lesson.untilMs) run.lesson = null;
+
   if (run.activeBlock) {
-    const { event, resolved, resolvedAt } = run.activeBlock;
-    if (resolved) {
-      if (run.elapsedMs >= resolvedAt + CONFIG.EXPLANATION_REVEAL_MS) run.activeBlock = null;
-      return;
-    }
+    const { event } = run.activeBlock;
     // An opened card times out on its own reaction window. Nothing is ever
     // assigned to activeBlock directly any more -- every message reaches it
     // through the pending queue and a deliberate open.
@@ -3612,22 +3667,16 @@ function updateHazardWarnings() {
   }
 }
 
-/* ---- coffee (office tier) ------------------------------------------------ */
-// Dithering in a live carriageway is the behaviour this punishes, so the
-// dwell clock only runs while the player is actually stood on a road band.
-function updateCoffee(dt) {
-  const band = bandAtRow(run.bands, run.row);
-  const onRoad = !!band && band.type === 'road';
-  if (!onRoad) { run.roadDwellMs = 0; return; }
-
-  run.roadDwellMs += dt * 1000;
-  if (!coffeeSpillDue(run.tier, true, run.roadDwellMs)) return;
-  // One spill per dwell, then the clock restarts — standing there longer
-  // keeps costing, but not every single frame.
-  run.state = resolveCoffeeSpill(run.state);
-  run.roadDwellMs = 0;
-  flourish('COFFEE SPILLED');
-  blip(210, 0.07);
+/* ---- stress -------------------------------------------------------------- */
+// Unread messages nag. Stress climbs while any are waiting and falls once the
+// queue is clear; max it out and attention tunnels (see isOverwhelmed), which
+// hides traffic exactly as music does.
+function updateStress(dt) {
+  const before = isOverwhelmed(run.state);
+  run.state = stepStress(run.state, dt, run.pendingNotifications.length);
+  const now = isOverwhelmed(run.state);
+  if (now && !before) { flourish('OVERWHELMED'); blip(140, 0.09); }
+  else if (!now && before) { flourish('HEAD CLEAR'); blip(700, 0.07); }
 }
 
 /* ---- movement ----------------------------------------------------------- */
@@ -3716,7 +3765,7 @@ function update(dt) {
   updateDistraction();
   updateMusic();
   updateHazardWarnings();
-  updateCoffee(dt);
+  updateStress(dt);
   run.distance = Math.max(run.distance, run.row);
   run.cameraRow += (run.row - run.cameraRow) * Math.min(1, dt * CONFIG.CAMERA_CHASE);
   // The wall paces the player, so it needs to know where they are — but it
@@ -3828,7 +3877,13 @@ function draw(viewW, viewH) {
       : 0,
     // Render-only, exactly like the vision cone: the cars are still there,
     // still moving, still lethal — you simply cannot hear them coming.
-    musicDeaf: musicDeafens(),
+    // Traffic stops being drawn when attention is gone -- whether that is
+    // music in your ears or an inbox you cannot keep up with. Render-only in
+    // both cases: the cars are still there, still moving, still lethal.
+    musicDeaf: musicDeafens() || isOverwhelmed(run.state),
+    stress: run.state.stress,
+    overwhelmed: isOverwhelmed(run.state),
+    lesson: run.lesson,
   };
   const frameHits = drawFrame(ctx, view);
   pauseHit = frameHits.pauseHit;
@@ -3837,13 +3892,16 @@ function draw(viewW, viewH) {
   // A card is only tappable while it is actually on screen.
   distractionHits = null;
   if (run.activeBlock && run.phase === 'playing') {
-    const { event, content, resolved, openedAtMs } = run.activeBlock;
+    const { event, content, openedAtMs } = run.activeBlock;
     // A deliberately-opened notification animates in from the moment it was
     // opened, not from whenever it originally arrived in the queue.
     const progress = Math.min(1, (run.elapsedMs - (openedAtMs ?? event.startMs)) / 180);
     distractionHits = drawDistractionBlock(ctx, view,
-      { event, content, resolved, progress }, reducedMotion);
+      { event, content, progress }, reducedMotion);
   }
+
+  // The lesson banner floats over the board but blocks nothing.
+  if (run.lesson && run.phase === 'playing') drawLessonBanner(ctx, view, run.lesson);
 
   // The music dial sits above everything: it is time-critical, and a card
   // drawn over it would cost the player the check through no fault of theirs.
@@ -3939,8 +3997,7 @@ const KEYS = {
 window.addEventListener('keydown', (e) => {
   // A distraction block owns all input while it's up.
   if (run && run.activeBlock) {
-    const { event, content, resolved } = run.activeBlock;
-    if (resolved) { e.preventDefault(); run.activeBlock = null; return; }
+    const { event, content } = run.activeBlock;
     if (event.requiresReply) {
       const idx = { Digit1: 0, Digit2: 1, Digit3: 2 }[e.code];
       if (idx !== undefined && content.options[idx]) { e.preventDefault(); settleDistraction(idx); }
@@ -4022,8 +4079,7 @@ canvas.addEventListener('pointerup', (e) => {
 
   // A distraction block owns pointer input first.
   if (run && run.activeBlock) {
-    const { event, resolved } = run.activeBlock;
-    if (resolved) { run.activeBlock = null; return; }   // tap through the explanation early
+    const { event } = run.activeBlock;
     if (event.requiresReply) {
       const opt = distractionHits && distractionHits.options.find((h) => within(h, px, py));
       if (opt) settleDistraction(distractionHits.options.indexOf(opt));
