@@ -306,7 +306,7 @@ const SG_ROAD_SAFETY_QUESTIONS = [
     ],
   },
   {
-    text: "The Green Man is on. Is it safe to just walk out without looking?",
+    text: 'The Green Man has just come on. What should you do before stepping onto the road?',
     explain: "A Green Man means it's your turn, not that every driver has actually stopped. Always "
       + 'confirm vehicles have stopped and keep watching for traffic before you step out.',
     options: [
@@ -425,11 +425,17 @@ const CONFIG = {
   // Must exceed CAR_LEN_MAX/2 + PLAYER_HIT_PAD, or a correctly stopped car
   // still overlaps the first zebra column. This is a static geometry fact,
   // independent of tier speed scaling.
-  CAR_STOP_GAP: 1.8,       // columns short of the zebra a car halts
-  CAR_LEN_MIN: 1.4,
-  CAR_LEN_MAX: 2.2,
-  CARS_PER_LANE: 2,        // scaled per tier by trafficDensityMult
-  CAR_WRAP_MARGIN: 4,      // columns of off-board runway before a car wraps around
+  CAR_STOP_GAP: 2.0,       // columns short of the zebra a car halts
+  // A real road carries everything from a kei car to a bus, so the length
+  // range is wide. CAR_STOP_GAP above must stay clear of CAR_LEN_MAX/2 +
+  // PLAYER_HIT_PAD or a correctly stopped bus still overlaps the crossing.
+  CAR_LEN_MIN: 1.3,
+  CAR_LEN_MAX: 3.0,
+  CARS_PER_LANE: 3,        // scaled per tier by trafficDensityMult
+  // Off-board runway before a car wraps around. Also sets how many vehicles a
+  // lane can hold, so it has to be generous enough that the density tiers
+  // stay genuinely different rather than all clamping to the same maximum.
+  CAR_WRAP_MARGIN: 8,
   // At least a full car length of clear air between cars in the same lane, so
   // queues read as separate vehicles instead of one clumped mass.
   CAR_FOLLOW_GAP: 1.6,
@@ -1065,9 +1071,16 @@ function activeDistraction(schedule, elapsedMs) {
 // Pure reducer, same shape as resolveCrossing: (state, event, action) -> state.
 // action is 'dismissed', a numeric chosen-option index, or 'timedOut'.
 function resolveDistraction(state, event, action) {
+  // Answering by index with no options attached is always a caller bug (the
+  // options live on the CONTENT, which the caller has to merge in) -- and it
+  // used to fail silently as "wrong answer", which is indistinguishable from
+  // the player actually being wrong. Fail loudly instead.
+  if (typeof action === 'number' && !(event.options && event.options.length)) {
+    throw new Error('resolveDistraction: numeric action but event carries no options');
+  }
   const succeeded = event.kind === 'toast'
     || action === 'dismissed'
-    || (typeof action === 'number' && event.options && event.options[action]
+    || (typeof action === 'number' && event.options[action]
         && event.options[action].correct === true);
 
   if (succeeded) {
@@ -1495,7 +1508,11 @@ function carHitsPlayer(car, playerRow, playerColFloat) {
   return playerColFloat >= car.x - half && playerColFloat <= car.x + half;
 }
 
-const CAR_COLORS = ['#E5533D', '#3E8BD8', '#F2B33D', '#EDE4CE', '#3FA88F', '#B9564C'];
+const CAR_COLORS = [
+  '#E5533D', '#3E8BD8', '#F2B33D', '#EDE4CE', '#3FA88F', '#B9564C',
+  '#8E6FC4', '#D97F3C', '#2F6E8F', '#C8CBD0', '#4C5A66', '#6FA83F',
+  '#E0A9C0', '#1F8A70', '#A33B3B', '#F0E2A8',
+];
 const NEUTRAL_TRAFFIC = { trafficDensityMult: 1, trafficSpeedMult: 1 };
 
 // tier is optional and defaults to a 1x/1x neutral profile, so every existing
@@ -1504,19 +1521,33 @@ function spawnCarsForBand(band, rng, tier = NEUTRAL_TRAFFIC) {
   if (band.type !== 'road') return [];
   const cars = [];
   const span = CONFIG.GRID_COLS + CONFIG.CAR_WRAP_MARGIN * 2;
-  const perLane = Math.max(1, Math.round(CONFIG.CARS_PER_LANE * (tier.trafficDensityMult || 1)));
+
+  // No car may begin the run sitting on the crossing, so the lane is really a
+  // ring with one arc forbidden. Cars are laid out evenly around the REMAINING
+  // arc: that keeps them off the zebra and evenly separated in one step,
+  // instead of placing them evenly and then shoving offenders aside (which
+  // pushed them into their neighbours and read as cars overlapping).
+  const padMax = CONFIG.CAR_LEN_MAX / 2 + CONFIG.PLAYER_HIT_PAD;
+  const blockedFrom = band.zebraCol - padMax;
+  const blockedTo = band.zebraCol + CONFIG.ZEBRA_WIDTH - 1 + padMax;
+  const freeLen = span - (blockedTo - blockedFrom);
+
+  // Density is a request, not a guarantee: only so many vehicles fit in the
+  // free arc at the longest length plus a following gap.
+  const maxPerLane = Math.max(1,
+    Math.floor(freeLen / (CONFIG.CAR_LEN_MAX + CONFIG.CAR_FOLLOW_GAP)));
+  const perLane = Math.max(1, Math.min(maxPerLane,
+    Math.round(CONFIG.CARS_PER_LANE * (tier.trafficDensityMult || 1))));
   const speedMult = tier.trafficSpeedMult || 1;
 
+  // Ring coordinates run from -CAR_WRAP_MARGIN up to span - CAR_WRAP_MARGIN.
+  const wrapX = (v) => ((v + CONFIG.CAR_WRAP_MARGIN) % span + span) % span - CONFIG.CAR_WRAP_MARGIN;
+
   band.lanes.forEach((lane, i) => {
-    const start = rng() * span;
+    const jitter = rng();                       // where along the free arc the lane starts
     for (let q = 0; q < perLane; q++) {
-      let x = ((start + (q * span) / perLane) % span) - CONFIG.CAR_WRAP_MARGIN;
-      const len = lerp(CONFIG.CAR_LEN_MIN, CONFIG.CAR_LEN_MAX, rng());
-      // A car must never begin the run sitting on the crossing.
-      const pad = len / 2 + CONFIG.PLAYER_HIT_PAD;
-      const lo = band.zebraCol - pad;
-      const hi = band.zebraCol + CONFIG.ZEBRA_WIDTH - 1 + pad;
-      if (x > lo && x < hi) x = hi + 0.25;
+      const u = ((q + jitter) % perLane) * (freeLen / perLane);
+      const x = wrapX(blockedTo + u);
       cars.push({
         // Stable per-car identity, so a decision like "does this driver run
         // the red?" can be rolled deterministically instead of stored.
@@ -1526,7 +1557,7 @@ function spawnCarsForBand(band, rng, tier = NEUTRAL_TRAFFIC) {
         dir: lane.dir,
         speed: lane.speed * speedMult,
         curSpeed: lane.speed * speedMult,
-        len,
+        len: lerp(CONFIG.CAR_LEN_MIN, CONFIG.CAR_LEN_MAX, rng()),
         color: CAR_COLORS[Math.floor(rng() * CAR_COLORS.length)],
       });
     }
@@ -1544,7 +1575,19 @@ function spawnCarsForBand(band, rng, tier = NEUTRAL_TRAFFIC) {
 function hazardForBand(band, tier, rng) {
   if (band.type !== 'road' || !tier.hazardCarChance) return null;
   if (rng() >= tier.hazardCarChance) return null;
-  return { laneOffset: Math.floor(rng() * band.rows) };
+  const laneOffset = Math.floor(rng() * band.rows);
+  return {
+    laneOffset,
+    // A speeding car is still a car in that lane: it must travel the way that
+    // lane travels. Deriving direction from the lane INDEX (as the renderer
+    // used to) sent it head-on into the traffic it shares a road with.
+    dir: band.lanes[laneOffset] ? band.lanes[laneOffset].dir : 1,
+    // ...and it should not always be the same long saloon. Drawn from the
+    // same length and colour pools as ordinary traffic, biased longer so it
+    // still reads as something heavy coming too fast.
+    len: lerp((CONFIG.CAR_LEN_MIN + CONFIG.CAR_LEN_MAX) / 2, CONFIG.CAR_LEN_MAX, rng()),
+    color: CAR_COLORS[Math.floor(rng() * CAR_COLORS.length)],
+  };
 }
 
 function hazardCyclePos(band, elapsedMs) {
@@ -2282,9 +2325,11 @@ function drawHazard(ctx, band, hazard, phase, board, elapsedMs, sweepT) {
     return;
   }
 
-  // sweeping: the car crosses the full width over the sweep window
-  const dir = hazard.laneOffset % 2 === 0 ? 1 : -1;
-  const len = tile * 2.6;
+  // sweeping: the car crosses the full width over the sweep window, travelling
+  // the way its OWN LANE travels (hazard.dir) rather than a direction guessed
+  // from its lane index, which used to send it head-on into ordinary traffic.
+  const dir = hazard.dir === -1 ? -1 : 1;
+  const len = (hazard.len || 2.6) * tile;
   const travel = layout.w + len * 2;
   const t = Math.min(1, Math.max(0, sweepT));
   const cx = dir === 1 ? -len + travel * t : layout.w + len - travel * t;
@@ -2309,7 +2354,9 @@ function drawHazard(ctx, band, hazard, phase, board, elapsedMs, sweepT) {
   const py = cy - h / 2;
   const r = tile * 0.18;
   contactShadow(ctx, cx, cy + h * 0.46, len * 0.55, h * 0.3, 0.3);
-  depthRect(ctx, px, py, len, h, r, PALETTE.hazard, Math.max(3, tile * 0.1));
+  // Its own colour from the ordinary traffic pool, so a speeding car is not
+  // instantly identifiable as "the red one" before you have even looked.
+  depthRect(ctx, px, py, len, h, r, hazard.color || PALETTE.hazard, Math.max(3, tile * 0.1));
   // roof and glass, same language as ordinary traffic so it reads as a car
   fillRoundRect(ctx, cx - len * 0.22, py + h * 0.16, len * 0.44, h * 0.68, r * 0.7,
     'rgba(255,255,255,0.22)');
@@ -3226,10 +3273,14 @@ function openPendingNotification() {
 function settleDistraction(action) {
   if (!run || !run.activeBlock || run.activeBlock.resolved) return;
   const before = run.state;
-  run.state = resolveDistraction(before, run.activeBlock.event, action);
+  const { event, content } = run.activeBlock;
+  // The SHUFFLED options the player actually saw live on `content`; the
+  // scheduled `event` never had any. Passing the bare event meant
+  // resolveDistraction could never find options[action].correct, so every
+  // answer -- including the right one -- scored as a miss.
+  run.state = resolveDistraction(before, { ...event, options: content.options }, action);
   const failed = run.state.telemetry.notificationsMissed > before.telemetry.notificationsMissed;
   if (failed) { run.flash = Math.max(run.flash, 0.7); blip(180, 0.1); } else { blip(620, 0.08); }
-  const { content } = run.activeBlock;
   if (content.explain) {
     // A brief reveal before the card clears -- see EXPLANATION_REVEAL_MS.
     run.activeBlock = { ...run.activeBlock, resolved: { correct: !failed }, resolvedAt: run.elapsedMs };
