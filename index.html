@@ -451,9 +451,12 @@ const CONFIG = {
   // A periodic sweep across a whole lane's width that ignores the pedestrian
   // signal entirely. The only safe response is not being on that row when it
   // passes — telegraphed well ahead so it never reads as an unfair death.
-  HAZARD_CYCLE_MS: 7000,       // how often an eligible band's hazard lane recurs
-  HAZARD_SWEEP_MS: 1500,       // how long the row stays lethal
-  HAZARD_CAR_WARN_MS: 1700,    // warning-triangle lead time before the sweep
+  // A speeding car is a REAL car in the lane, not a separate effect: it queues
+  // behind traffic like anything else (so it can never drive through another
+  // car), but it does not stop for the pedestrian signal. That is the lesson —
+  // some drivers simply are not going to stop for you.
+  HAZARD_SPEED_MULT: 2.0,      // how much faster than the lane's normal traffic
+  HAZARD_CAR_WARN_MS: 1800,    // how far ahead of its arrival the horn sounds
 
   // ---- Phone distraction --------------------------------------------------
   NOTIFICATION_DURATION_MS: 4200,   // reply-required block: time before a miss is scored
@@ -1441,6 +1444,9 @@ function carRunsRedLight(car, band, elapsedMs) {
 function carTargetSpeed(car, band, elapsedMs) {
   if (band.type !== 'road') return car.speed;
   if (isInCrossingZone(car, band)) return car.speed;
+  // A speeding car never stops for the signal. It still queues behind other
+  // traffic (see stepCars), so this makes it dangerous, not incorporeal.
+  if (car.speeding) return car.speed;
   if (!signalStopsTraffic(elapsedMs, band.seed)) return car.speed;
   if (carRunsRedLight(car, band, elapsedMs)) return car.speed;   // this one is not stopping
 
@@ -1588,12 +1594,14 @@ function spawnCarsForBand(band, rng, tier = NEUTRAL_TRAFFIC) {
   return cars;
 }
 
-/* ---- Telegraphed hazard car ----------------------------------------------
-   Not a car object — a periodic, whole-lane sweep that ignores the signal
-   entirely. Rolled once per band (kept out of buildBand/generateBands so
-   band layout stays fully tier-agnostic and every existing band test is
-   unaffected); phase is a pure function of elapsed time, same pattern as the
-   pedestrian signal.
+/* ---- Speeding car --------------------------------------------------------
+   Not a separate effect any more. It used to be a render-only sweep across a
+   lane, which meant it had no idea ordinary traffic existed and drove visibly
+   straight through it. It is now simply a CAR in the lane, flagged `speeding`:
+   twice the normal speed, and it ignores the pedestrian signal — but it obeys
+   the same following distance as everything else, so it can never overlap
+   another car. Its threat is telegraphed by a horn as it closes on the
+   crossing (speederWarning) rather than by a fixed cycle.
    ------------------------------------------------------------------------- */
 function hazardForBand(band, tier, rng) {
   if (band.type !== 'road' || !tier.hazardCarChance) return null;
@@ -1601,46 +1609,92 @@ function hazardForBand(band, tier, rng) {
   const laneOffset = Math.floor(rng() * band.rows);
   return {
     laneOffset,
-    // A speeding car is still a car in that lane: it must travel the way that
-    // lane travels. Deriving direction from the lane INDEX (as the renderer
-    // used to) sent it head-on into the traffic it shares a road with.
+    // A speeding car is still a car in that lane: it travels the way that lane
+    // travels, and looks like ordinary traffic rather than a marked villain.
     dir: band.lanes[laneOffset] ? band.lanes[laneOffset].dir : 1,
-    // ...and it should not always be the same long saloon. Drawn from the
-    // same length and colour pools as ordinary traffic, biased longer so it
-    // still reads as something heavy coming too fast.
     len: lerp((CONFIG.CAR_LEN_MIN + CONFIG.CAR_LEN_MAX) / 2, CONFIG.CAR_LEN_MAX, rng()),
     color: CAR_COLORS[Math.floor(rng() * CAR_COLORS.length)],
   };
 }
 
-function hazardCyclePos(band, elapsedMs) {
-  const cycleMs = CONFIG.HAZARD_CYCLE_MS;
-  return cyclePos(elapsedMs, (band.seed * 653) % cycleMs, cycleMs);
+// Ring coordinates run from -CAR_WRAP_MARGIN up to span - CAR_WRAP_MARGIN.
+function wrapLaneX(v) {
+  const span = CONFIG.GRID_COLS + CONFIG.CAR_WRAP_MARGIN * 2;
+  return ((v + CONFIG.CAR_WRAP_MARGIN) % span + span) % span - CONFIG.CAR_WRAP_MARGIN;
 }
 
-// Which sweep this moment belongs to. Exported so a once-per-approach effect
-// (the horn) can be fired exactly once rather than on every frame of the
-// warning window.
-function hazardCycleIndex(band, elapsedMs) {
-  const cycleMs = CONFIG.HAZARD_CYCLE_MS;
-  return Math.floor((elapsedMs + (band.seed * 653) % cycleMs) / cycleMs);
+// The speeding car as an actual car object, ready to join its lane. It is
+// dropped into the LARGEST EXISTING GAP in that lane rather than at a fixed
+// offset: the lane is already packed with evenly spaced traffic, so a fixed
+// position lands on top of another car and the run opens with an overlap.
+function speederForBand(band, hazard, tier = NEUTRAL_TRAFFIC, laneCars = []) {
+  if (!hazard || band.type !== 'road') return null;
+  const lane = band.lanes[hazard.laneOffset];
+  if (!lane) return null;
+
+  const row = band.startRow + hazard.laneOffset;
+  const span = CONFIG.GRID_COLS + CONFIG.CAR_WRAP_MARGIN * 2;
+  const speed = lane.speed * (tier.trafficSpeedMult || 1) * CONFIG.HAZARD_SPEED_MULT;
+
+  // Positions in this lane, in ring order along the direction of travel.
+  const here = laneCars.filter((c) => c.row === row)
+    .map((c) => ({ x: c.x, len: c.len }))
+    .sort((a, b) => a.x - b.x);
+
+  let x = wrapLaneX(band.zebraCol - hazard.dir * span * 0.5);
+  if (here.length) {
+    let best = -Infinity;
+    for (let i = 0; i < here.length; i++) {
+      const cur = here[i];
+      const next = here[(i + 1) % here.length];
+      // Gap from the front of `cur` to the back of `next`, wrapping.
+      let gap = next.x - cur.x;
+      if (gap <= 0) gap += span;
+      const clear = gap - (cur.len + next.len) / 2;
+      if (clear > best) {
+        best = clear;
+        x = wrapLaneX(cur.x + gap / 2);
+      }
+    }
+  }
+
+  return {
+    id: (band.seed * 977 + hazard.laneOffset) | 0,
+    row,
+    x,
+    dir: hazard.dir,
+    speed,
+    curSpeed: speed,
+    len: hazard.len,
+    color: hazard.color,
+    speeding: true,
+  };
 }
 
-function hazardPhase(band, hazard, elapsedMs) {
-  if (!hazard) return 'none';
-  const pos = hazardCyclePos(band, elapsedMs);
-  const cycleMs = CONFIG.HAZARD_CYCLE_MS;
-  const sweepStart = cycleMs - CONFIG.HAZARD_SWEEP_MS;
-  const warnStart = sweepStart - CONFIG.HAZARD_CAR_WARN_MS;
-  if (pos >= sweepStart) return 'sweeping';
-  if (pos >= warnStart) return 'warning';
-  return 'none';
+// How long until this car reaches the crossing, in ms. Wraps around the ring,
+// so a car that has just passed reports the time until it comes round again.
+function msToCrossing(car, band) {
+  if (band.type !== 'road') return Infinity;
+  const span = CONFIG.GRID_COLS + CONFIG.CAR_WRAP_MARGIN * 2;
+  const target = car.dir === 1
+    ? band.zebraCol - car.len / 2
+    : band.zebraCol + CONFIG.ZEBRA_WIDTH - 1 + car.len / 2;
+  let ahead = (target - car.x) * car.dir;
+  if (ahead < 0) ahead += span;
+  return (ahead / Math.max(car.curSpeed, 0.001)) * 1000;
 }
 
-function hazardHitsPlayer(band, hazard, elapsedMs, playerRow) {
-  if (!hazard) return false;
-  if (hazardPhase(band, hazard, elapsedMs) !== 'sweeping') return false;
-  return playerRow === band.startRow + hazard.laneOffset;
+// True while a speeding car is close enough to the crossing that its horn
+// should be sounding. Pure, so the horn and the warning stripes always agree.
+function speederWarning(car, band) {
+  if (!car || !car.speeding) return false;
+  // Bounded to a fraction of the car's lap time as well as an absolute lead.
+  // A speeder can lap the ring in under HAZARD_CAR_WARN_MS on the fastest
+  // tier, and a horn that is ALWAYS sounding is not a warning at all.
+  const span = CONFIG.GRID_COLS + CONFIG.CAR_WRAP_MARGIN * 2;
+  const lapMs = (span / Math.max(car.curSpeed, 0.001)) * 1000;
+  const window = Math.min(CONFIG.HAZARD_CAR_WARN_MS, lapMs * 0.45);
+  return msToCrossing(car, band) <= window;
 }
 
 /* =========================================================================
@@ -1931,6 +1985,26 @@ function drawWarningTriangle(ctx, cx, cy, size, pulse) {
 
 /* ---- world pieces ------------------------------------------------------- */
 function drawCar(ctx, car, x, y, tile) {
+  // A speeding car gets motion streaks so it reads as "coming too fast" at a
+  // glance, without being colour-coded into an obvious villain.
+  if (car.speeding) {
+    const len = car.len * tile;
+    ctx.save();
+    ctx.globalAlpha = 0.45;
+    ctx.strokeStyle = 'rgba(255,255,255,0.75)';
+    ctx.lineWidth = Math.max(1.5, tile * 0.05);
+    ctx.lineCap = 'round';
+    for (let i = 1; i <= 4; i++) {
+      const sx = x - car.dir * (len * 0.6 + i * tile * 0.7);
+      const sy = y - tile * 0.18 + i * tile * 0.06;
+      ctx.beginPath();
+      ctx.moveTo(sx, sy);
+      ctx.lineTo(sx + car.dir * tile * 0.5, sy);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
   const w = car.len * tile;
   const h = tile * 0.74;
   const px = x - w / 2;
@@ -2434,73 +2508,24 @@ function drawBands(ctx, bands, board) {
 // triangle on both kerbs first, then a vehicle that tears down the whole lane
 // ignoring the signal. It cannot be sidestepped -- the only answer is to not
 // be on that row -- so it is drawn wide and fast enough to read as unstoppable.
-function drawHazard(ctx, band, hazard, phase, board, elapsedMs, sweepT, musicDeaf) {
-  if (!hazard || phase === 'none') return;
-  // The speeding car's telegraph is its HORN, so a player deafened by their
-  // own music gets no warning at all -- neither the sound nor the stripes.
-  // The sweep itself is still drawn: losing the early warning is the penalty,
-  // being killed by something that was never on screen would just be unfair.
-  if (phase === 'warning' && musicDeaf) return;
+// The lane a speeding car is bearing down on. The car itself is drawn with
+// ordinary traffic -- it IS ordinary traffic, just faster -- so this is only
+// the telegraph. Suppressed entirely while music has deafened the player:
+// the horn is the real warning, and losing it is the price of the music.
+function drawSpeederWarning(ctx, row, board, elapsedMs, musicDeaf) {
+  if (musicDeaf) return;
   const { layout, tile, rowY } = board;
-  const row = band.startRow + hazard.laneOffset;
   const y = rowY(row);
   const cy = y + tile / 2;
+  const pulse = 0.5 + 0.5 * Math.sin(elapsedMs / 90);
 
-  if (phase === 'warning') {
-    const pulse = 0.5 + 0.5 * Math.sin(elapsedMs / 90);
-    // hatched danger stripes down the threatened lane
-    ctx.save();
-    ctx.globalAlpha = 0.16 + 0.14 * pulse;
-    ctx.fillStyle = PALETTE.warnTri;
-    ctx.fillRect(0, y, layout.w, tile);
-    ctx.restore();
-    drawWarningTriangle(ctx, tile * 0.55, cy, tile * 0.5, pulse);
-    drawWarningTriangle(ctx, layout.w - tile * 0.55, cy, tile * 0.5, pulse);
-    return;
-  }
-
-  // sweeping: the car crosses the full width over the sweep window, travelling
-  // the way its OWN LANE travels (hazard.dir) rather than a direction guessed
-  // from its lane index, which used to send it head-on into ordinary traffic.
-  const dir = hazard.dir === -1 ? -1 : 1;
-  const len = (hazard.len || 2.6) * tile;
-  const travel = layout.w + len * 2;
-  const t = Math.min(1, Math.max(0, sweepT));
-  const cx = dir === 1 ? -len + travel * t : layout.w + len - travel * t;
-
-  // speed streaks trailing behind it
   ctx.save();
-  ctx.globalAlpha = 0.5;
-  ctx.strokeStyle = 'rgba(255,255,255,0.75)';
-  ctx.lineWidth = Math.max(1.5, tile * 0.05);
-  ctx.lineCap = 'round';
-  for (let i = 1; i <= 4; i++) {
-    const sx = cx - dir * (len * 0.6 + i * tile * 0.7);
-    ctx.beginPath();
-    ctx.moveTo(sx, cy - tile * 0.18 + i * tile * 0.06);
-    ctx.lineTo(sx + dir * tile * 0.5, cy - tile * 0.18 + i * tile * 0.06);
-    ctx.stroke();
-  }
+  ctx.globalAlpha = 0.16 + 0.16 * pulse;
+  ctx.fillStyle = PALETTE.warnTri;
+  ctx.fillRect(0, y, layout.w, tile);
   ctx.restore();
-
-  const h = tile * 0.8;
-  const px = cx - len / 2;
-  const py = cy - h / 2;
-  const r = tile * 0.18;
-  contactShadow(ctx, cx, cy + h * 0.46, len * 0.55, h * 0.3, 0.3);
-  // Its own colour from the ordinary traffic pool, so a speeding car is not
-  // instantly identifiable as "the red one" before you have even looked.
-  depthRect(ctx, px, py, len, h, r, hazard.color || PALETTE.hazard, Math.max(3, tile * 0.1));
-  // roof and glass, same language as ordinary traffic so it reads as a car
-  fillRoundRect(ctx, cx - len * 0.22, py + h * 0.16, len * 0.44, h * 0.68, r * 0.7,
-    'rgba(255,255,255,0.22)');
-  const sw = len * 0.08;
-  fillRoundRect(ctx, cx - len * 0.22 - sw * 1.2, py + h * 0.2, sw, h * 0.6, r * 0.5, PALETTE.glass);
-  fillRoundRect(ctx, cx + len * 0.22 + sw * 0.2, py + h * 0.2, sw, h * 0.6, r * 0.5, PALETTE.glass);
-  // headlights blazing in the direction of travel
-  const hx = dir === 1 ? px + len * 0.94 : px + len * 0.02;
-  fillRoundRect(ctx, hx, py + h * 0.16, len * 0.04, h * 0.68, 2, '#FFF3C4');
-  gloss(ctx, px, py, len, h, r, 0.38);
+  drawWarningTriangle(ctx, tile * 0.55, cy, tile * 0.5, pulse);
+  drawWarningTriangle(ctx, layout.w - tile * 0.55, cy, tile * 0.5, pulse);
 }
 
 function drawWall(ctx, state, elapsedMs, board) {
@@ -2656,7 +2681,7 @@ function drawCarsInCone(ctx, layout, board, cars, view) {
 function drawFrame(ctx, view) {
   const {
     viewW, viewH, bands, cars, state, elapsedMs, cameraRow, tier,
-    hazardByBand, obstacles, coneRadiusTiles,
+    warningRows, obstacles, coneRadiusTiles,
   } = view;
 
   const layout = boardLayout(viewW, viewH);
@@ -2714,11 +2739,14 @@ function drawFrame(ctx, view) {
     drawSignal(ctx, band, colX(sigCol), rowY(sigRow) + tile * 0.5, tile, elapsedMs,
       behind ? 0.26 : 1);
 
-    const hz = hazardByBand && hazardByBand.get(band.index);
-    // The hazard warning ignores the vision cone — a telegraph you could miss
-    // by looking the wrong way would be an unfair death, not a lesson. It is
+    // The warning ignores the vision cone — a telegraph you could miss by
+    // looking the wrong way would be an unfair death, not a lesson. It is
     // suppressed only by MUSIC, which is a choice the player made and can undo.
-    if (hz) drawHazard(ctx, band, hz.hazard, hz.phase, board, elapsedMs, hz.sweepT, view.musicDeaf);
+    if (warningRows) {
+      for (let r = band.startRow; r < band.startRow + band.rows; r++) {
+        if (warningRows.has(r)) drawSpeederWarning(ctx, r, board, elapsedMs, view.musicDeaf);
+      }
+    }
   }
 
   drawWall(ctx, state, elapsedMs, board);
@@ -3310,9 +3338,16 @@ function bandData(band) {
         makeRng(band.seed + run.state.worldSeed + 5077), (CONFIG.GRID_COLS / 2) | 0, zebraBehind),
     };
   } else {
+    const hazard = hazardForBand(band, run.tier, makeRng(band.seed + run.state.worldSeed + 97));
+    const ordinary = spawnCarsForBand(band, makeRng(band.seed + run.state.worldSeed), run.tier);
+    // The speeder needs to see the traffic it is joining so it can drop into a
+    // real gap rather than on top of somebody.
+    const speeder = speederForBand(band, hazard, run.tier, ordinary);
     data = {
-      cars: spawnCarsForBand(band, makeRng(band.seed + run.state.worldSeed), run.tier),
-      hazard: hazardForBand(band, run.tier, makeRng(band.seed + run.state.worldSeed + 97)),
+      // The speeding car is just another car in the lane, so every following
+      // and bumper rule already applies to it and it can never overlap.
+      cars: speeder ? [...ordinary, speeder] : ordinary,
+      hazard,
       obstacles: [],
     };
   }
@@ -3554,7 +3589,7 @@ function tryMusicCheck() {
 /* ---- speeding-car warnings ----------------------------------------------
    The telegraph for a speeding car is a HORN. That makes the music genuinely
    dangerous rather than merely annoying: while a track is drowning out the
-   road you get no horn, and (see drawHazard) no warning stripes either -- the
+   road you get no horn, and no warning stripes either (drawSpeederWarning) -- the
    first you know of it is the car itself, arriving.
    ------------------------------------------------------------------------- */
 function updateHazardWarnings() {
@@ -3562,16 +3597,18 @@ function updateHazardWarnings() {
 
   for (const band of visibleBands()) {
     if (band.type !== 'road') continue;
-    const data = bandData(band);
-    if (!data.hazard) continue;
-    if (hazardPhase(band, data.hazard, run.elapsedMs) !== 'warning') continue;
-
-    // Once per sweep, not once per frame.
-    const cycle = hazardCycleIndex(band, run.elapsedMs);
-    if (run.hazardHonked.get(band.index) === cycle) continue;
-    run.hazardHonked.set(band.index, cycle);
-    run.hazardHonkCount++;
-    hazardHorn();
+    for (const car of bandData(band).cars) {
+      if (!car.speeding) continue;
+      const warning = speederWarning(car, band);
+      // Edge-triggered: sound the horn once as it begins its approach, not
+      // every frame it spends inside the warning window.
+      const wasWarning = run.hazardHonked.get(car.id) === true;
+      if (warning && !wasWarning) {
+        run.hazardHonkCount++;
+        hazardHorn();
+      }
+      run.hazardHonked.set(car.id, warning);
+    }
   }
 }
 
@@ -3699,14 +3736,11 @@ function update(dt) {
     const data = bandData(band);
     for (const car of data.cars) {
       if (!carHitsPlayer(car, run.row, p.col)) continue;
-      // Which lesson this death teaches depends on WHY the car was there: a
-      // driver who ran the red teaches "a green man is not protection", an
-      // ordinary one teaches "look before you step out".
-      endRun(carRunsRedLight(car, band, run.elapsedMs) ? 'redRunner' : 'car');
-      return;
-    }
-    if (data.hazard && hazardHitsPlayer(band, data.hazard, run.elapsedMs, run.row)) {
-      endRun('hazard');
+      // Which lesson this death teaches depends on WHY the car was there: one
+      // coming too fast to stop, one that ran the red ("a green man is not
+      // protection"), or an ordinary one ("look before you step out").
+      if (car.speeding) endRun('hazard');
+      else endRun(carRunsRedLight(car, band, run.elapsedMs) ? 'redRunner' : 'car');
       return;
     }
   }
@@ -3740,23 +3774,17 @@ function draw(viewW, viewH) {
   const bands = visibleBands();
   const cars = [];
   const obstacles = [];
-  const hazardByBand = new Map();
+  // Which bands currently have a speeding car bearing down on their crossing,
+  // so the renderer can stripe that lane as a warning. The car itself is drawn
+  // with the ordinary traffic -- it IS ordinary traffic, just faster.
+  const warningRows = new Set();
   for (const band of bands) {
     const data = bandData(band);
     if (data.obstacles.length) obstacles.push(...data.obstacles);
     if (band.type !== 'road') continue;
     cars.push(...data.cars);
-    if (data.hazard) {
-      const phase = hazardPhase(band, data.hazard, run.elapsedMs);
-      // How far through its sweep the car is, so the renderer can place it.
-      const cyclePos = ((run.elapsedMs + (band.seed * 653) % CONFIG.HAZARD_CYCLE_MS)
-        % CONFIG.HAZARD_CYCLE_MS + CONFIG.HAZARD_CYCLE_MS) % CONFIG.HAZARD_CYCLE_MS;
-      const sweepStart = CONFIG.HAZARD_CYCLE_MS - CONFIG.HAZARD_SWEEP_MS;
-      hazardByBand.set(band.index, {
-        hazard: data.hazard,
-        phase,
-        sweepT: (cyclePos - sweepStart) / CONFIG.HAZARD_SWEEP_MS,
-      });
+    for (const car of data.cars) {
+      if (car.speeding && speederWarning(car, band)) warningRows.add(car.row);
     }
   }
 
@@ -3784,7 +3812,7 @@ function draw(viewW, viewH) {
     paused: run.phase === 'paused',
     flash: run.flash,
     flourishes: run.flourishes,
-    hazardByBand,
+    warningRows,
     obstacles,
     aimRad: run.aimRad,
     coneRadiusTiles: coneRadiusFor(fogActive),
