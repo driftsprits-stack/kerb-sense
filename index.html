@@ -451,7 +451,7 @@ const CONFIG = {
   // A periodic sweep across a whole lane's width that ignores the pedestrian
   // signal entirely. The only safe response is not being on that row when it
   // passes — telegraphed well ahead so it never reads as an unfair death.
-  HAZARD_CYCLE_MS: 9000,       // how often an eligible band's hazard lane recurs
+  HAZARD_CYCLE_MS: 7000,       // how often an eligible band's hazard lane recurs
   HAZARD_SWEEP_MS: 1500,       // how long the row stays lethal
   HAZARD_CAR_WARN_MS: 1700,    // warning-triangle lead time before the sweep
 
@@ -550,7 +550,7 @@ const CONFIG = {
       // you cannot HEAR traffic, so you have to look for it.
       id: 'student', name: 'Student', blurb: 'Music on. You will not hear them coming.',
       wallCreepSpeed: 0.42,
-      trafficDensityMult: 1.0, trafficSpeedMult: 1.0, hazardCarChance: 0.08,
+      trafficDensityMult: 1.0, trafficSpeedMult: 1.0, hazardCarChance: 0.24,
       distraction: { everyMs: 0, replyChance: 0, sender: null, fogOfWar: false, calls: false, bossEvents: false },
       music: { everyMs: 9000 },
       coffee: false,
@@ -563,7 +563,7 @@ const CONFIG = {
       // the same attention.
       id: 'poly', name: 'Poly Student', blurb: 'Music, plus Raeann will not stop texting.',
       wallCreepSpeed: 0.56,
-      trafficDensityMult: 1.25, trafficSpeedMult: 1.12, hazardCarChance: 0.16,
+      trafficDensityMult: 1.25, trafficSpeedMult: 1.12, hazardCarChance: 0.42,
       distraction: { everyMs: 8000, replyChance: 0.6, sender: 'raeann', fogOfWar: true, calls: false, bossEvents: false },
       music: { everyMs: 11000 },
       coffee: false,
@@ -576,7 +576,7 @@ const CONFIG = {
       // road — the tier where hesitation itself is the hazard.
       id: 'office', name: 'Office Worker', blurb: 'Music, the boss, and a full cup of kopi.',
       wallCreepSpeed: 0.72,
-      trafficDensityMult: 1.5, trafficSpeedMult: 1.25, hazardCarChance: 0.26,
+      trafficDensityMult: 1.5, trafficSpeedMult: 1.25, hazardCarChance: 0.60,
       distraction: { everyMs: 5000, replyChance: 1.0, sender: 'boss', fogOfWar: true, calls: true, bossEvents: true },
       music: { everyMs: 13000 },
       coffee: true,
@@ -1595,6 +1595,14 @@ function hazardCyclePos(band, elapsedMs) {
   return cyclePos(elapsedMs, (band.seed * 653) % cycleMs, cycleMs);
 }
 
+// Which sweep this moment belongs to. Exported so a once-per-approach effect
+// (the horn) can be fired exactly once rather than on every frame of the
+// warning window.
+function hazardCycleIndex(band, elapsedMs) {
+  const cycleMs = CONFIG.HAZARD_CYCLE_MS;
+  return Math.floor((elapsedMs + (band.seed * 653) % cycleMs) / cycleMs);
+}
+
 function hazardPhase(band, hazard, elapsedMs) {
   if (!hazard) return 'none';
   const pos = hazardCyclePos(band, elapsedMs);
@@ -2305,8 +2313,13 @@ function drawBands(ctx, bands, board) {
 // triangle on both kerbs first, then a vehicle that tears down the whole lane
 // ignoring the signal. It cannot be sidestepped -- the only answer is to not
 // be on that row -- so it is drawn wide and fast enough to read as unstoppable.
-function drawHazard(ctx, band, hazard, phase, board, elapsedMs, sweepT) {
+function drawHazard(ctx, band, hazard, phase, board, elapsedMs, sweepT, musicDeaf) {
   if (!hazard || phase === 'none') return;
+  // The speeding car's telegraph is its HORN, so a player deafened by their
+  // own music gets no warning at all -- neither the sound nor the stripes.
+  // The sweep itself is still drawn: losing the early warning is the penalty,
+  // being killed by something that was never on screen would just be unfair.
+  if (phase === 'warning' && musicDeaf) return;
   const { layout, tile, rowY } = board;
   const row = band.startRow + hazard.laneOffset;
   const y = rowY(row);
@@ -2596,9 +2609,10 @@ function drawFrame(ctx, view) {
       behind ? 0.26 : 1);
 
     const hz = hazardByBand && hazardByBand.get(band.index);
-    // The hazard warning is also always drawn — a telegraph you can miss by
-    // looking the wrong way would be an unfair death, not a lesson.
-    if (hz) drawHazard(ctx, band, hz.hazard, hz.phase, board, elapsedMs, hz.sweepT);
+    // The hazard warning ignores the vision cone — a telegraph you could miss
+    // by looking the wrong way would be an unfair death, not a lesson. It is
+    // suppressed only by MUSIC, which is a choice the player made and can undo.
+    if (hz) drawHazard(ctx, band, hz.hazard, hz.phase, board, elapsedMs, hz.sweepT, view.musicDeaf);
   }
 
   drawWall(ctx, state, elapsedMs, board);
@@ -3010,6 +3024,24 @@ function horn() {
   })));
 }
 
+// A speeding car announcing itself: two urgent blasts, pitched above the
+// crash horn so the two are never confused. This is the WARNING -- which is
+// why going deaf to the music removes it entirely (see updateHazardWarnings).
+function hazardHorn() {
+  play([620, 780].map((freq) => ({
+    freq, type: 'square', peak: 0.14, attackSec: 0.01, releaseSec: 0.22, stopSec: 0.24,
+  })));
+  try {
+    audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+    const now = audio.currentTime;
+    for (const freq of [620, 780]) {
+      tone(now + 0.3, {
+        freq, type: 'square', peak: 0.14, attackSec: 0.01, releaseSec: 0.22, stopSec: 0.24,
+      });
+    }
+  } catch { /* audio is a nicety, never a blocker */ }
+}
+
 function blip(freq, vol = 0.07) {
   play([{
     freq, type: 'triangle', peak: vol, attackSec: 0.015, releaseSec: 0.2, stopSec: 0.22,
@@ -3125,6 +3157,11 @@ function newRun(tierIndex) {
     lastMusicStart: -1,
     activeMusic: null,             // { event, resolved } | null
     musicDeafUntilMs: 0,
+
+    // Which sweep of each band's hazard has already sounded its horn, so the
+    // warning blares once per approach rather than every frame.
+    hazardHonked: new Map(),           // bandIndex -> hazard cycle index
+    hazardHonkCount: 0,
 
     // Coffee (office tier): how long the player has been stood on a road band.
     roadDwellMs: 0,
@@ -3405,6 +3442,30 @@ function tryMusicCheck() {
   return true;
 }
 
+/* ---- speeding-car warnings ----------------------------------------------
+   The telegraph for a speeding car is a HORN. That makes the music genuinely
+   dangerous rather than merely annoying: while a track is drowning out the
+   road you get no horn, and (see drawHazard) no warning stripes either -- the
+   first you know of it is the car itself, arriving.
+   ------------------------------------------------------------------------- */
+function updateHazardWarnings() {
+  if (musicDeafens()) return;          // you cannot hear it coming
+
+  for (const band of visibleBands()) {
+    if (band.type !== 'road') continue;
+    const data = bandData(band);
+    if (!data.hazard) continue;
+    if (hazardPhase(band, data.hazard, run.elapsedMs) !== 'warning') continue;
+
+    // Once per sweep, not once per frame.
+    const cycle = hazardCycleIndex(band, run.elapsedMs);
+    if (run.hazardHonked.get(band.index) === cycle) continue;
+    run.hazardHonked.set(band.index, cycle);
+    run.hazardHonkCount++;
+    hazardHorn();
+  }
+}
+
 /* ---- coffee (office tier) ------------------------------------------------ */
 // Dithering in a live carriageway is the behaviour this punishes, so the
 // dwell clock only runs while the player is actually stood on a road band.
@@ -3508,6 +3569,7 @@ function update(dt) {
   extendWorld();
   updateDistraction();
   updateMusic();
+  updateHazardWarnings();
   updateCoffee(dt);
   run.distance = Math.max(run.distance, run.row);
   run.cameraRow += (run.row - run.cameraRow) * Math.min(1, dt * CONFIG.CAMERA_CHASE);
@@ -3899,6 +3961,12 @@ window.__game = {
   // and waiting, tryMusicCheck() taps it. A bot that ignores these goes deaf
   // and loses ground exactly like a player who ignores them would.
   musicPending: () => !!(run && run.activeMusic && !run.activeMusic.resolved),
+  // True while the player cannot hear traffic. Exposed so automated checks
+  // can assert what deafness actually suppresses.
+  musicDeaf: () => !!run && musicDeafens(),
+  // How many hazard horns have sounded this run -- the honk is the speeding
+  // car's whole telegraph, so "did it warn me?" has to be observable.
+  hazardHonks: () => (run ? run.hazardHonkCount : 0),
   musicInWindow: () => !!(run && run.activeMusic && !run.activeMusic.resolved
     && musicCheckInWindowNow()),
   tryMusicCheck,
