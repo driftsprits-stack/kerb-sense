@@ -71,6 +71,9 @@ jobs:
       - name: Link check
         uses: lycheeverse/lychee-action@82202e5e9c2f4ef1a55a3d02563e1cb6041e5332 # v2.4.1
         with:
+          # The same lychee version as the local check. Older versions name
+          # --base-url differently.
+          lycheeVersion: v0.21.0
           # Site links are checked against the preview server at the same base
           # path as GitHub Pages. The canonical URLs are remapped to it, so the
           # check does not depend on the live site.
