@@ -1,0 +1,11 @@
+node_modules/
+dist/
+coverage/
+test-results/
+playwright-report/
+.lighthouseci/
+*.local
+
+# Handoff material that must not be published (owner decision, WEBSITE-STANDARDS.md section 1)
+website-handoff/source/
+website-handoff/references/

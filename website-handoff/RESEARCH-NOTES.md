@@ -1,6 +1,8 @@
 # Research notes
 
-Research for the Kerb Sense website, done before writing any site code. Read alongside `DESIGN.md` (binding), `CONTENT.md` and `PLAN.md`.
+Research for the Kerb Sense website, done before writing any site code. Read alongside `WEBSITE-STANDARDS.md` (highest priority), `DESIGN.md`, `CONTENT.md` and `PLAN.md`.
+
+**Revision 2.** Updated for `WEBSITE-STANDARDS.md`: the Magnet effect is dropped, no opacity or fade animation is allowed, hover is an instant state change, the page ground is the paper tone `#F2EFE8`, and the landing page shows a real gameplay clip.
 
 **How the research was done.** This session's network policy blocks most websites: youtube.com, swissthemes.design, sunnamps.com, cocricot.pics, reactbits.dev, rnprimitives.com and radix-ui.com all returned blocked. So:
 - I read React Bits and RN Primitives from their **source code**, by cloning `DavidHDev/react-bits` and `roninoss/rn-primitives` from GitHub. That is more reliable than the docs sites.
@@ -28,7 +30,7 @@ Research for the Kerb Sense website, done before writing any site code. Read alo
 | Keep things simple and clean | One idea per section. Small "label block" callouts. |
 
 - The thumbnail recipe (`ref-5` and our own `hero-16x9.webp` plate): one colour field, white "scope" geometry, a huge black silhouette, and the title **knocked out in the field colour**. Our version of the scope rings is the **zebra crossing**.
-- The "fast diagonal wipe" from the videos becomes our only transition. Hard-edged `clip-path` polygons wipe solid colour on and off. They never fade.
+- The "fast diagonal wipe" from the videos is the shape of the section tabs (static `clip-path` chevrons). Tabs do not animate: `WEBSITE-STANDARDS.md` item 72 and 83 forbid animated arrows and scroll reveals.
 - **One tension to note.** Ahoy art has no outlines, but the brief asks for a black outline on the 3D booth. I will keep the outline, because the booth body is white and sits on a white page, so without it the booth would disappear. The outline is the black of the palette, so it is still flat and opaque.
 
 ## 2. Swiss style on the web
@@ -56,7 +58,7 @@ I agree with your suggestion. A toggle in the nav (and the `G` key) reveals the 
 
 **cocricot.pics** *(from the brief)*: a calm, paper-like page, a tiny one-colour nav, and a catalogue grid of isolated objects.
 - The **parts catalogue**: each booth part (joystick, four buttons, screen glass, hinge, latch, hook) sits alone on white in a cell. Cells are separated by 1px black hairlines, with lots of air and a small caption ("Joystick." plus one line of spec).
-- "Paper" here means **pure white**. DESIGN.md forbids off-whites.
+- "Paper" is the page ground `--ks-paper #F2EFE8` (DESIGN.md revision 2). It is used only as the page background behind reading areas. Type, shapes, the booth and the catalogue cells stay in the seven colours, and the catalogue cells are pure white on the paper ground.
 
 ## 4. React Bits
 
@@ -66,20 +68,21 @@ React Bits is a **copy-in** library: you paste the source into your project and 
 
 | Component | Where | Why, and what changes |
 |---|---|---|
-| **SplitText** (GSAP SplitText + ScrollTrigger) | Section headlines | Lines slide up from behind a hard `overflow: clip` edge, like a sign rolling up. Its default `from:{opacity:0,y:40}` is replaced with `from:{yPercent:110}` and no opacity. |
+| **SplitText** (GSAP SplitText) | The hero headline only, once at page load | Lines slide up from behind a hard `overflow: clip` edge, like a sign rolling up. Its default `from:{opacity:0,y:40}` is replaced with `from:{yPercent:110}` and no opacity. No ScrollTrigger: section headlines are visible by default (standards item 83). |
 | **ScrollVelocity** (marquee) | A yellow band between sections: "Look. Listen. Cross. Then check." | A scroll-linked marquee with solid black type, like a caution tape or the game's chasing wall. Its CSS `drop-shadow` filter is removed. |
-| **Magnet** | The big **Play.** buttons | A magnetic pull toward the pointer, which makes the main call to action feel physical. It is already clean (no opacity, blur, gradient or shadow). |
 | **Counter** (rolling digits) | The targets: 900 / 1,500 / 20 / 20% / 20 pt / 75% | Odometer digits roll behind a hard mask, like a scoreboard. Its default top and bottom `linear-gradient` fades are removed (`gradientHeight=0`, with the spans dropped). |
-| **Stepper** (pattern only) | The programme on phones | Months 1–6 as numbered square steps that slide sideways. Its `opacity` transitions and `box-shadow` are removed, and it is rebuilt on Radix Tabs for keyboard and screen-reader behaviour. |
+| **Stepper** (pattern only) | The programme on phones | Months 1–6 as numbered square steps that slide sideways on user input only. Its `opacity` transitions and `box-shadow` are removed, and it is rebuilt on Radix Tabs for keyboard and screen-reader behaviour. |
+| **Press interaction** (own, 2 lines of CSS) | The gameplay thumbnail and the **Play.** buttons | `:active { transform: translate(2px, 2px) }` with no transition. This is the "press" the standards allow. The React Bits Magnet effect is **dropped** (standards item 73). |
 
 **Rejected, with reasons:**
 - ScrollReveal, BlurText, FadeContent, AnimatedContent, ScrollFloat and TrueFocus: opacity or blur fades.
 - ShinyText, GradientText, GlitchText, FuzzyText, LetterGlitch, DecryptedText and ScrambledText: gradients, or random glyph noise that hurts readability and screen readers.
 - Everything in Backgrounds and the WebGL Components (Aurora, Silk, Particles, Hyperspeed, FluidGlass, GlassSurface, …): glow, gradients and glass.
+- Magnet: clean code, but it is a hover animation, which standards item 73 bans.
 - Dock, MagicBento, SpotlightCard, TiltedCard and StickerPeel: shadows, glare, or 3D tilt with shading.
 - ModelViewer: it uses lighting, environment maps and shadows. We build our own flat viewer instead.
 
-To keep one animation engine I will use GSAP and port Counter and ScrollVelocity (which use `motion/react`) to it. GSAP 3.13+ includes SplitText and ScrollTrigger for free. Under `prefers-reduced-motion` all of these render their final state immediately.
+To keep one animation engine I will use GSAP and port Counter and ScrollVelocity (which use `motion/react`) to it. GSAP 3.13+ includes SplitText for free. Under `prefers-reduced-motion` all of these render their final state immediately. **Hover** is never animated: every hover is an instant colour inversion or a solid underline, with `transition: none`.
 
 ## 5. RN Primitives vs Radix UI
 
@@ -104,6 +107,9 @@ To keep one animation engine I will use GSAP and port Counter and ScrollVelocity
 - **Keyboard trap check.** While an in-game message block is up, the game swallows *any* key (including Tab) to dismiss it. That is a one-keypress hold, not a trap.
 - **Esc pauses the game.** Inside an iframe, Esc never reaches the parent page. So "full screen" must use the browser's **Fullscreen API** (where the browser's own Esc always exits), not a custom modal. iPhone Safari has no element fullscreen, so on phones "Open full screen." simply goes to `/play/`.
 - The game's own visual style (rounded, warm gradients) is the game, and it stays untouched inside its frame. The design rules apply to the site around it.
+- **Game storage.** Checked in `index.html` before the move: the game uses **no** `localStorage`, `sessionStorage` or cookies. Nothing is stored between sessions. The privacy and cookies pages can say so.
+- The game's text contains em dashes. The game is unchanged, so the em-dash audit excludes `public/play/`.
+- **Gameplay clip.** Playwright in headless Chromium can drive the game: press "I promise", pick the Teenager profile, then move with the arrow keys and record the canvas with `recordVideo`. ffmpeg trims the recording to 6 to 10 seconds, strips audio, and writes WebM (VP9) and MP4 (H.264) under 2 MB plus a WebP poster. The clip is a real capture, never a mock-up.
 
 ## 7. The booth model (`booth-flat.glb`)
 
@@ -145,7 +151,8 @@ To keep one animation engine I will use GSAP and port Counter and ScrollVelocity
 | Yellow `#E1B913` | 1.9 ✗ **never** | **11.2** | black only |
 
 - The knocked-out green wordmark on the black silhouette is 4.2:1, which is fine at hero size.
-- Focus ring: 3px **square** outline, white on black, red, blue and green fields, and black on white, yellow and light-blue fields. It is set per section with a `--focus` variable.
+- Focus ring: 3px **square** outline, white on black, red, blue and green fields, and black on white, paper, yellow and light-blue fields. It is set per section with a `--focus` variable.
+- Black text on paper `#F2EFE8` is 18.5:1.
 
 ## 9. Sources
 

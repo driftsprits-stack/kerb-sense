@@ -1,118 +1,127 @@
 # Build plan
 
-Status: **waiting for approval. Nothing is built yet.** Read `RESEARCH-NOTES.md` first.
+Revision 2. Follows `WEBSITE-STANDARDS.md` (highest priority), then `DESIGN.md`, `CONTENT.md` and `PROMPT.md`. Read `RESEARCH-NOTES.md` first.
+
+This plan is a live checklist (standards item E27). Tick a task when it is done.
 
 ## The idea
 
-A one-page Swiss poster built on a visible 12-column grid. The booth is the hero object, and **"Show grid."** is the one strong gesture. Every section opens with an Ahoy chevron tab and a full-stop headline. The only colours are the seven palette colours. There are no shadows, gradients, opacity changes or rounded corners.
+A one-page Swiss poster on a paper ground, built on a visible 12-column grid. The booth is the hero object. **"Show the grid."** is the one strong gesture. Every section opens with an Ahoy chevron tab and a full-stop headline. The only colours are the seven palette colours plus the paper ground. There are no shadows, gradients, opacity changes, fades, hover animations or rounded corners.
+
+## Decisions taken from the owner (standards section 1)
+
+- Team: first names only (Brenden, Justin, Min, Wen Wei, Jaden), with role and institution.
+- `website-handoff/source/` and `website-handoff/references/` are in `.gitignore`. The other handoff files are committed.
+- The site is at the root URL. The game moves to `/play/` unchanged. CI checks its SHA-256.
+- The landing page shows a real gameplay clip as a big thumbnail that goes to `/play/`.
+- No API keys, secrets, backend or database.
 
 ## Stack
 
-- **Vite 8 + React 19 + TypeScript.**
-- **Tailwind 4**, with every token in `src/styles/tokens.css`: the palette, the type scale (12 / 14 / 16 / 20 / 28 / 40 / 64 / 96 / 160, the largest sizes fluid with `clamp`), tracking, the grid and the rule weights. Tailwind's default palette is switched off, so only `ks-*` colours exist.
-- **react-three-fiber 9 + drei 10 + three.**
-- **GSAP 3.15** (SplitText, ScrollTrigger).
-- **Radix** Toggle, ToggleGroup, Tabs, Accordion, Dialog and Tooltip.
-- **sharp** and **gltf-transform**, as build-time scripts only.
+- Vite 8, React 19, TypeScript (`strict`).
+- Tailwind 4 with every token in `src/styles/tokens.css`. Tailwind's default palette is removed, so only `ks-*` colours exist.
+- react-three-fiber 9, drei 10, three.
+- GSAP 3.15 (SplitText only, for the hero headline).
+- Radix Toggle, Toggle Group, Tabs, Accordion and Dialog.
+- Build-time only: sharp (images), gltf-transform (GLB), Playwright and ffmpeg (clip).
+- Tests: Vitest (unit, coverage), Playwright (E2E, axe, screenshots), Lighthouse CI.
+- CI: build, lint, typecheck, unit tests, E2E, link check (lychee), gitleaks, npm audit, CodeQL, Lighthouse CI, the `/play/` SHA-256 check, Dependabot.
 
 ## File layout
 
 ```
-index.html                    site entry (the game moves out of the root)
-public/play/index.html        the game, git mv'd, byte-identical (checked by SHA-256 in CI)
-public/favicon.svg            kerbsense-mark-white-on-red.svg
-src/styles/tokens.css         palette, type scale, grid, focus ring
-src/content.ts                all copy, taken only from CONTENT.md and the proposal
-src/components/               Nav, Logo, SectionTab, LabelBlock, GridOverlay, PlayButton (Magnet), Marquee
-src/bits/                     SplitText, ScrollVelocity, Magnet, Counter (React Bits, copied in and cleaned)
-src/sections/                 Hero, Problem, Game, Booth, Programme, Targets, Safety, Team, Budget, Footer
-src/booth/                    BoothViewer.tsx (lazy chunk), BoothFallback.tsx, parts.ts (node to label to explode vector)
-scripts/images.mjs            renders and parts to WebP + AVIF at 480 / 960 / 1600
-scripts/model.mjs             GLB: meshopt + quantise, strip UVs, keep node names (target under 150 KB)
-scripts/audit.mjs             fails the build on banned CSS or off-palette colour, or if the game hash changes
-.github/workflows/pages.yml   build, then upload-pages-artifact, then deploy-pages
+index.html                       site entry
+privacy/index.html, terms/index.html, cookies/index.html   policy pages (Vite multi-page)
+404.html                         custom 404 (GitHub Pages)
+public/play/index.html           the game, git mv'd, byte-identical (SHA-256 in CI)
+public/favicon.svg, icons        kerbsense-mark-white-on-red.svg, PNG fallbacks, apple-touch-icon
+public/robots.txt, sitemap.xml
+src/styles/tokens.css            palette, paper, type scale, grid, focus ring
+src/content.ts                   all copy, from CONTENT.md and the proposal only
+src/lib/                         pure logic with unit tests: explode vectors, view angles, grid state, retry/backoff, circuit breaker
+src/components/                  Nav, Logo, SectionTab, LabelBlock, GridOverlay, Marquee, PlayLink, ErrorBoundary
+src/bits/                        SplitText, ScrollVelocity, Counter (React Bits, copied in and cleaned)
+src/sections/                    Hero, Problem, Game, Booth, Programme, Targets, Safety, Team, Budget, Footer
+src/booth/                       BoothViewer.tsx (lazy), BoothFallback.tsx, parts.ts
+scripts/images.mjs               renders and parts to WebP and AVIF at 480 / 960 / 1600; og image
+scripts/model.mjs                GLB: meshopt + quantise, strip UVs, keep node names
+scripts/record-clip.mjs          Playwright + ffmpeg gameplay clip
+scripts/audit.mjs                fails the build on banned CSS, off-palette colours, em dashes, emoji, or a changed game hash
+scripts/check-play-hash.mjs      the SHA-256 check
+docs/                            COMPLIANCE.md, LEGAL-REVIEW.md, DR.md, adr/, screenshots/
+.github/workflows/               ci.yml, pages.yml, codeql.yml, uptime.yml; dependabot.yml
 ```
 
 ## Sections
 
-The tab colour follows the section number, using the cycle red, blue, green, yellow, light blue, black. This lines up with the document: site sections 2, 3, 5, 6, 8 and 9 have the same number and the same subject as the document's sections.
+The tab colour follows the section number in the cycle red, blue, green, yellow, light blue, black.
 
-| # | Section | Tab | Content and components |
+| # | Section | Tab | Content |
 |---|---|---|---|
-| 1 | **Hero** | red tab, green field | A responsive HTML/SVG thumbnail:<br>• zebra bars are SVG rectangles lined up with the grid columns;<br>• the booth side silhouette is huge and cropped by the frame (cropped harder on a 375px phone, not shrunk);<br>• "kerb sense" plus the roundel, knocked out in green on the black;<br>• tagline "Wait, and you get there first.";<br>• **Play.** (Magnet) and **See the booth.** buttons. |
-| 2 | **The problem.** | blue | Big type on the left; three small columns on the right, as on the *Neue Grafik* cover. The SPF figures quoted exactly (142 → 149; 11 → 27), with the source and the "not caused by phone use or students" caveat. "Knowing the rules is not the same as following them." |
-| 3 | **The game.** | green | The eight Ahoy rules as numbered black label blocks. Radix Tabs for the profiles (Primary School, Teenager, Office Worker). The pledge, and **I promise.** The embed (below). |
-| — | Marquee | yellow band | "Look. Listen. Cross. Then check." in black, scroll-linked. |
-| 4 | **The booth.** (largest) | yellow (black text) | The 3D viewer (below), the Cocricot parts catalogue, the spec sheet as a Swiss table (3px rule on top, 1px rules between rows), and the elevations plate. |
-| 5 | **The programme.** | light blue | Desktop: a Swiss table with the columns Month / Activities / Outputs. Phone: the Stepper (Radix Tabs, squares 1–6). |
-| 6 | **The targets.** | black | Six huge rolling Counters, each with a **"Target."** label block, under the headline "Targets, not results. The pilot has not run yet." |
-| 7 | **Safe by design.** | red | Radix Accordion of the safeguards, with "Stop somewhere safe before you play." set big. |
-| 8 | **The team.** | blue | A Swiss table of role and institution (see question 1). |
-| 9 | **The budget.** | green | Flat palette bars on a 0–S$3,000 scale, as a real `<table>` with bar cells; the top items; "No grant money goes to cash prizes or to team members." |
-| 10 | **Footer** | yellow (black text) | Delta Challenge 2026 Track B (SPF and NCPC); NYC Young ChangeMakers grant; TEAM if raeann cared; the five references from section 14; logo white on black. |
+| 1 | **Hero** | red tab, green field | Responsive HTML/SVG thumbnail: zebra bars on the grid columns, the booth side silhouette cropped by the frame, "kerb sense" knocked out in green, the tagline, **Play the game.** and **See the booth.** One SplitText slide on the headline at load. |
+| 1b | **Gameplay clip** | — | A big Ahoy-style thumbnail: the real clip (muted, looping, `playsinline`) with a WebP poster, a black label block "Play." and a press state. Click, tap, Enter or Space goes to `/play/`. |
+| 2 | **The problem.** | blue | Big type left, three small columns right. The SPF figures quoted exactly with the source and the caveat. |
+| 3 | **The game.** | green | Eight rules as numbered black label blocks. Radix Tabs for the three profiles. The pledge. The embed: click to load the iframe, with **Open full screen.** and **Open in a new page.** |
+| — | Road band | yellow | ScrollVelocity marquee: "Look. Listen. Cross. Then check." in black. Stops under reduced motion. |
+| 4 | **The booth.** | yellow tab, black text | The 3D viewer, the parts catalogue, the spec table, the elevations plate. |
+| 5 | **The programme.** | light blue | Desktop: Swiss table (Month, Activities, Outputs). Phone: the Stepper on Radix Tabs. |
+| 6 | **The targets.** | black | Six Counters, each with a **Target.** label. Headline: "Targets, not results." |
+| 7 | **Safe by design.** | red | Radix Accordion of the safeguards. "Stop somewhere safe before you play." set big. |
+| 8 | **The team.** | blue | Swiss table: role, first name, institution. |
+| 9 | **The budget.** | green | Flat palette bars on a 0 to S$3,000 scale in a real table. |
+| 10 | **Footer** | yellow, black text | Delta Challenge 2026 Track B, the YCM grant, the team name, the five references, policy links, "© 2026 Kerb Sense". |
 
-**Nav.** Logo top-left. Small lowercase links: problem, game, booth, programme, targets, safety, team, budget. A **Show grid.** toggle and a **Play.** button. On phones the nav becomes a Radix Dialog: a full-screen black sheet with big type.
+**Nav.** Logo top-left (goes to the top). Lowercase links to the sections. **Show the grid.** toggle (also the `G` key). **Play the game.** On phones a Radix Dialog menu with `aria-expanded`, a focus trap and Escape to close, plus a sticky **Play.** button that respects safe-area insets.
 
-**Motion.**
-- SplitText headlines slide up from behind a hard mask.
-- Section tabs use the Ahoy diagonal `clip-path` wipe.
-- The Magnet pull on **Play.** buttons.
-- Counter rollers on the targets.
-- The marquee.
-
-Nothing fades or blurs. Under `prefers-reduced-motion`, everything renders in its final state.
+**Motion (the only motion).** The booth viewer; the road band; the Counters (once each); the Stepper on input; one SplitText slide on the hero headline; the clip. All transform only. All stop under `prefers-reduced-motion`. Hover is instant.
 
 ## The game embed
 
-- **Click to load.** A poster block reading **Play.**. Clicking it injects `<iframe src="${BASE_URL}play/" title="Kerb Sense, the game" allow="fullscreen; autoplay">` and then focuses it. This means no audio and no 177 KB download until the visitor asks for them.
-- **Open full screen.** On desktop and Android this uses the Fullscreen API on the frame; on iPhone it goes to `/play/`. There is also an always-visible "Open in its own page" link.
-- **Phones.** Below 640px, Play. goes straight to `/play/`. The game uses `touch-action: none`, which would otherwise trap page scrolling inside the embed.
+- Click to load: a solid poster block **Play.** injects `<iframe src="…/play/" title="Kerb Sense, the game" allow="fullscreen">` and focuses it.
+- **Open full screen.** uses the Fullscreen API. On iPhone it goes to `/play/`.
+- Below 640px the Play. control goes straight to `/play/`.
+- Loading state: a black block with "Loading the game." Error state: "The game did not load. Open it in a new page." with a link.
 
 ## The booth viewer
 
-- **Lazy loading.** It is a `React.lazy` chunk, fetched when the booth section is within one screen of the viewport.
-- **When it is skipped.** It is not loaded at all if WebGL is missing or `prefers-reduced-motion` is set. In that case `BoothFallback` shows the static renders (`booth-flat-*`), and the **Front. Side. Back. Top.** buttons still work by swapping renders.
-- **Camera.** `OrthographicCamera`, no lights, no environment map and no shadows.
-- **Materials.** Every mesh gets a `MeshBasicMaterial` in its palette hex, mapped from the GLB material name.
-- **Outline.** drei `<Outlines>`: black back-face hulls, thickness tuned to match the renders.
-- **Drag to rotate.** OrbitControls with zoom and pan off, so the page keeps scrolling. On touch, horizontal drags rotate and vertical swipes scroll the page (`touch-action: pan-y`).
-- **Snaps.** A ToggleGroup with **Front. Side. Back. Top.** that tweens to the same angles as the renders, or jumps straight there under reduced motion.
-- **Explode.** A Toggle that tweens each part along one clean axis:
-  - screen glass forward (+Z);
-  - joystick and buttons up (+Y), with the buttons spread on X;
-  - hinges, latches, pins and hooks backward (−Z) and out on ±X;
-  - the interior plane backward.
-- **Labels.** Hover or tap a part to show an Ahoy label block (drei `<Html>`, black block, white bold "Joystick."). Hovering or focusing a card in the parts catalogue shows the same label on the model, so keyboard and screen-reader users get the same information. The canvas has an `aria-label`, and the catalogue is the accessible list of parts.
+- `React.lazy`, loaded when the booth section is near the viewport. Skipped when WebGL is missing or reduced motion is on; then `BoothFallback` shows the static renders and the view buttons swap renders.
+- `OrthographicCamera`, `MeshBasicMaterial` in the palette, drei `<Outlines>` in black, no lights, no environment, no shadows.
+- Drag to rotate (OrbitControls, no zoom, no pan, `touch-action: pan-y`).
+- **Front. Side. Back. Top.** Toggle Group; the last input wins and animations never stack (E21).
+- **Explode.** Toggle: screen glass +Z, controls +Y with buttons spread on X, hardware −Z and ±X.
+- Hover or tap a part: an Ahoy label block via drei `<Html>`. Catalogue cards show the same label on focus.
+- GLB fetch: 15 s timeout, 3 retries with backoff, then a circuit breaker and the fallback (E15, E19, E20, S7). Error boundary with an STE message (E18).
 
-## Assets and performance
+## Assets
 
-- WebP and AVIF `srcset` at 480 / 960 / 1600 px, with `loading="lazy"` below the fold.
-- GLB under 1 MB (expected around 100–150 KB with meshopt).
-- three.js lives only in the lazy booth chunk.
-- System fonts only.
-- Alt text on every image. Decorative zebra bars are `aria-hidden`.
+- WebP and AVIF `srcset` at 480 / 960 / 1600. No image over 300 KB except the hero.
+- GLB under 1 MB (meshopt).
+- og:image 1200×630 from the hero art.
+- Favicon SVG plus PNG fallbacks and apple-touch-icon.
+
+## Pages and SEO
+
+- `/privacy/`, `/terms/`, `/cookies/` in STE. No contact email (BLOCKED, standards item 18).
+- `404.html` on brand with links home and to `/play/`, `noindex`.
+- Unique titles `Page name | Kerb Sense`, meta descriptions, canonical URLs, sitemap, robots, JSON-LD (`WebSite`, `VideoGame`, `Organization`), og and Twitter tags.
 
 ## Deploy
 
-- `vite.config.ts` sets `base: '/kerb-sense/'`.
-- The workflow runs on push to `main`: `npm ci`, then `npm run build` (which runs the audit), then upload, then deploy.
-- **One manual step for the repo owner:** in Settings → Pages → Source, choose **GitHub Actions**. A workflow cannot switch this itself.
-- After the merge, `driftsprits-stack.github.io/kerb-sense/` becomes the website and the game lives at `/kerb-sense/play/`.
+- `base: '/kerb-sense/'`.
+- `pages.yml` on push to `main`: build, upload, deploy. Actions pinned to SHAs.
+- Owner: Settings → Pages → Source → GitHub Actions; Enforce HTTPS.
 
-## Checking
+## Checklist
 
-1. `scripts/audit.mjs` checks the built CSS and JS. It fails on:
-   - any `gradient`, `box-shadow`, `text-shadow`, `filter:`, `backdrop-filter` or `opacity` other than 1;
-   - any `border-radius` other than 0 (the roundel SVG is exempt);
-   - any colour that is not one of the seven hexes;
-   - a change to the game's SHA-256.
-2. Playwright screenshots of every section and of `/play/` at **1440 px** and **375 px**, plus a keyboard-only walk (Tab through the nav, the grid toggle, the snaps, explode, the embed and full screen).
-3. Contrast check against the table in RESEARCH-NOTES §8.
-4. Note: the container has no Helvetica, so screenshots will render in the Arial or Liberation fallback. Real Macs and iPhones get Helvetica Neue.
-5. Open a PR. Screenshots go in `docs/screenshots/` on the branch and are embedded in the PR description.
-
-## Questions before building
-
-1. **Team names.** PROMPT.md says "roles and institutions only", but CONTENT.md lists names as public. Should the five names go on the site? (Default: show role, name and institution, as CONTENT.md says.)
-2. **What goes into the public repo.** The repo is public. Should `website-handoff/` be committed in full? `source/proposal-full-text.txt` is the whole grant proposal, and `references/` holds third-party images. (Default: commit the Markdown docs only, git-ignore `source/` and `references/`, and copy the assets the site needs into `src/assets/`.)
-3. **The URL change.** Are you OK with the root URL becoming the website and the game moving to `/play/`? Anyone with the old link lands on the site, which has a big **Play.** button.
+- [x] Research notes
+- [x] Plan (this file)
+- [ ] Scaffold, tokens, game moved to `/play/`, hash check
+- [ ] Image and model pipeline
+- [ ] Gameplay clip
+- [ ] Sections, nav, grid, embed
+- [ ] Booth viewer and fallback
+- [ ] Policies, 404, SEO
+- [ ] Unit tests with coverage, E2E with axe, screenshots
+- [ ] Audit script, CI workflows, Dependabot, CodeQL, Lighthouse, lychee, gitleaks
+- [ ] Docs: README, ADRs, DR, LEGAL-REVIEW, CONTRIBUTING, COMPLIANCE
+- [ ] Pull request with screenshots and final report
