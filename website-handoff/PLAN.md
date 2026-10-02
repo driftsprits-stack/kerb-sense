@@ -115,13 +115,13 @@ The tab colour follows the section number in the cycle red, blue, green, yellow,
 
 - [x] Research notes
 - [x] Plan (this file)
-- [ ] Scaffold, tokens, game moved to `/play/`, hash check
-- [ ] Image and model pipeline
-- [ ] Gameplay clip
-- [ ] Sections, nav, grid, embed
-- [ ] Booth viewer and fallback
-- [ ] Policies, 404, SEO
-- [ ] Unit tests with coverage, E2E with axe, screenshots
-- [ ] Audit script, CI workflows, Dependabot, CodeQL, Lighthouse, lychee, gitleaks
-- [ ] Docs: README, ADRs, DR, LEGAL-REVIEW, CONTRIBUTING, COMPLIANCE
+- [x] Scaffold, tokens, game moved to `/play/`, hash check
+- [x] Image and model pipeline
+- [x] Gameplay clip
+- [x] Sections, nav, grid, embed
+- [x] Booth viewer and fallback
+- [x] Policies, 404, SEO
+- [x] Unit tests with coverage, E2E with axe, screenshots
+- [x] Audit script, CI workflows, Dependabot, CodeQL, Lighthouse, lychee, gitleaks
+- [x] Docs: README, ADRs, DR, LEGAL-REVIEW, CONTRIBUTING, COMPLIANCE
 - [ ] Pull request with screenshots and final report

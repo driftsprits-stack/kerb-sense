@@ -10,6 +10,9 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   build: {
     target: 'es2022',
+    // Keep every image as a hashed file so the browser cache works (E22).
+    assetsInlineLimit: 0,
+    chunkSizeWarningLimit: 1300,
     rollupOptions: {
       input: {
         main: resolve(__dirname, 'index.html'),
@@ -19,8 +22,10 @@ export default defineConfig({
         notFound: resolve(__dirname, '404.html'),
       },
       output: {
-        manualChunks: {
-          three: ['three', '@react-three/fiber', '@react-three/drei'],
+        // three.js and the viewer live in their own lazy chunk.
+        manualChunks: (id) => {
+          if (/node_modules\/(three|@react-three|three-stdlib|meshoptimizer)\//.test(id)) return 'three';
+          return undefined;
         },
       },
     },

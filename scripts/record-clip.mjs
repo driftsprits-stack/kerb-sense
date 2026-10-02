@@ -22,7 +22,8 @@ const LIMIT = 2 * 1024 * 1024;
 // recording browser gets one read-only hook at the end of the game's closure,
 // so the bot can read the board state. The published game file is not
 // changed (scripts/check-play-hash.mjs proves it).
-const HOOK = 'window.__kerbSense = { get run() { return run; }, bandAtRow, signalPhase, bandData, blockedAt };\n})();';
+const HOOK =
+  'window.__kerbSense = { get run() { return run; }, bandAtRow, signalPhase, bandData, blockedAt };\n})();';
 const server = createServer(async (req, res) => {
   try {
     const original = await readFile(join(PLAY, 'index.html'), 'utf8');
@@ -82,7 +83,10 @@ const nextKey = () =>
       let road = null;
       for (let r = run.row + 1; r < run.row + 12; r += 1) {
         const b = bandAtRow(run.bands, r);
-        if (b && b.type === 'road') { road = b; break; }
+        if (b && b.type === 'road') {
+          road = b;
+          break;
+        }
       }
       if (!road) return 'ArrowUp';
       const target = road.zebraCol + 1;
@@ -99,7 +103,13 @@ const nextKey = () =>
     // On the road: keep going while the next row is clear.
     const nextBand = bandAtRow(run.bands, run.row + 1);
     if (nextBand && nextBand.type === 'road' && carNear(nextBand, run.row + 1, run.col, 2)) return null;
-    if (nextBand && nextBand.type === 'road' && nextBand !== band && signalPhase(run.elapsedMs, nextBand.seed) !== 'green') return null;
+    if (
+      nextBand &&
+      nextBand.type === 'road' &&
+      nextBand !== band &&
+      signalPhase(run.elapsedMs, nextBand.seed) !== 'green'
+    )
+      return null;
     return 'ArrowUp';
   });
 
@@ -125,18 +135,59 @@ const source = join(TMP, video);
 
 // Skip the pledge and start screens, then keep 8 seconds.
 const SKIP = 1.6;
-const common = ['-y', '-ss', String(SKIP), '-t', String(CLIP_SECONDS), '-i', source, '-an', '-vf', 'scale=960:-2'];
-execFileSync('ffmpeg', [...common, '-c:v', 'libvpx-vp9', '-b:v', '0', '-crf', '36', join(OUT, 'gameplay.webm')], {
-  stdio: 'ignore',
-});
+const common = [
+  '-y',
+  '-ss',
+  String(SKIP),
+  '-t',
+  String(CLIP_SECONDS),
+  '-i',
+  source,
+  '-an',
+  '-vf',
+  'scale=960:-2',
+];
 execFileSync(
   'ffmpeg',
-  [...common, '-c:v', 'libx264', '-profile:v', 'main', '-pix_fmt', 'yuv420p', '-crf', '28', '-movflags', '+faststart', join(OUT, 'gameplay.mp4')],
+  [...common, '-c:v', 'libvpx-vp9', '-b:v', '0', '-crf', '36', join(OUT, 'gameplay.webm')],
+  {
+    stdio: 'ignore',
+  },
+);
+execFileSync(
+  'ffmpeg',
+  [
+    ...common,
+    '-c:v',
+    'libx264',
+    '-profile:v',
+    'main',
+    '-pix_fmt',
+    'yuv420p',
+    '-crf',
+    '28',
+    '-movflags',
+    '+faststart',
+    join(OUT, 'gameplay.mp4'),
+  ],
   { stdio: 'ignore' },
 );
 execFileSync(
   'ffmpeg',
-  ['-y', '-ss', String(SKIP + 3), '-i', source, '-frames:v', '1', '-vf', 'scale=960:-2', '-quality', '80', join(OUT, 'gameplay-poster.webp')],
+  [
+    '-y',
+    '-ss',
+    String(SKIP + 3),
+    '-i',
+    source,
+    '-frames:v',
+    '1',
+    '-vf',
+    'scale=960:-2',
+    '-quality',
+    '80',
+    join(OUT, 'gameplay-poster.webp'),
+  ],
   { stdio: 'ignore' },
 );
 await rm(TMP, { recursive: true, force: true });

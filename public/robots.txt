@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://driftsprits-stack.github.io/kerb-sense/sitemap.xml

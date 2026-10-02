@@ -1,0 +1,11 @@
+# gitleaks configuration. The default rules apply. The game file and the
+# generated assets contain long encoded strings that are not secrets.
+[extend]
+useDefault = true
+
+[allowlist]
+paths = [
+  '''public/play/index\.html''',
+  '''src/assets/.*''',
+  '''package-lock\.json''',
+]

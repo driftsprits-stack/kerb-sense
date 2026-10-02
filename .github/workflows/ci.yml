@@ -1,0 +1,77 @@
+# CI for the Kerb Sense website. Every push and pull request runs:
+# the game hash check, lint, format, typecheck, unit tests with coverage,
+# the build with the design audit, Playwright E2E with axe, a link check,
+# gitleaks, npm audit and Lighthouse CI. Actions are pinned to commit SHAs.
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  secrets:
+    name: Secret scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad1a0c3ea4a7ad51 # v5.0.1
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v2.3.9
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  checks:
+    name: Build and test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad1a0c3ea4a7ad51 # v5.0.1
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run check:play
+      - run: npm audit --audit-level=high
+      - run: npm run lint
+      - run: npm run format:check
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+        env:
+          CI: 'true'
+      - name: Upload Playwright report and screenshots
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: playwright
+          path: |
+            playwright-report
+            test-results
+          retention-days: 14
+      - name: Link check
+        uses: lycheeverse/lychee-action@82202e5e9c2f4ef1a55a3d02563e1cb6041e5332 # v2.4.1
+        with:
+          args: --no-progress --root-dir "${{ github.workspace }}/dist" --exclude-path dist/play --exclude "doi.org" "dist/**/*.html"
+          fail: true
+      - name: Lighthouse CI
+        run: npm run lhci
+        env:
+          LHCI_GITHUB_APP_TOKEN: ''
+      - name: Upload Lighthouse results
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: lighthouse
+          path: .lighthouseci
+          retention-days: 14

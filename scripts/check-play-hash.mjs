@@ -10,7 +10,9 @@ const actual = createHash('sha256').update(readFileSync(file)).digest('hex');
 
 if (actual !== EXPECTED) {
   console.error(`The game file changed. Expected ${EXPECTED}, got ${actual}.`);
-  console.error('Do not change the game. If a new game build is intended, update scripts/check-play-hash.mjs.');
+  console.error(
+    'Do not change the game. If a new game build is intended, update scripts/check-play-hash.mjs.',
+  );
   process.exit(1);
 }
 console.log('The game file is unchanged.');

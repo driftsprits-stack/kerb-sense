@@ -1,6 +1,18 @@
 /* Kerb Sense design tokens. Source: website-handoff/DESIGN.md.
    Seven colours plus the paper ground. No other colour exists in this site. */
-@import 'tailwindcss' theme(static);
+@layer theme, base, components, utilities;
+
+/* Tailwind without its preflight: the base layer below is the whole reset.
+   Scan only the site's own source. Markdown and docs contain words that
+   would otherwise become utilities. */
+@import 'tailwindcss/theme.css' layer(theme);
+@import 'tailwindcss/utilities.css' layer(utilities) source(none);
+@source '../';
+@source '../../index.html';
+@source '../../404.html';
+@source '../../privacy/index.html';
+@source '../../terms/index.html';
+@source '../../cookies/index.html';
 
 @theme {
   /* Remove Tailwind's default palette so only ks-* colours exist. */
@@ -48,8 +60,12 @@
 
   --radius-*: initial;
   --shadow-*: initial;
+  --inset-shadow-*: initial;
+  --drop-shadow-*: initial;
+  --text-shadow-*: initial;
   --blur-*: initial;
   --animate-*: initial;
+  --ease-*: initial;
 }
 
 :root {
@@ -85,7 +101,11 @@
 }
 
 @layer base {
-  * {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+    border: 0 solid;
     border-radius: 0 !important;
   }
   html {
@@ -122,6 +142,7 @@
   ul,
   ol {
     padding: 0;
+    list-style: none;
   }
   img,
   video,
@@ -129,6 +150,10 @@
   canvas {
     display: block;
     max-width: 100%;
+  }
+  img,
+  video {
+    height: auto;
   }
   button {
     font: inherit;

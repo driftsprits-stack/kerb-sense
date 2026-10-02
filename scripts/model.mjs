@@ -15,7 +15,9 @@ const output = outDir + 'booth-flat.glb';
 await mkdir(outDir, { recursive: true });
 await MeshoptEncoder.ready;
 
-const io = new NodeIO().registerExtensions(ALL_EXTENSIONS).registerDependencies({ 'meshopt.encoder': MeshoptEncoder });
+const io = new NodeIO()
+  .registerExtensions(ALL_EXTENSIONS)
+  .registerDependencies({ 'meshopt.encoder': MeshoptEncoder });
 const document = await io.read(input);
 
 // Strip texture coordinates: no textures, no lighting.

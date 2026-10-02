@@ -20,8 +20,14 @@ async function convert(dir, outDir) {
     for (const w of WIDTHS) {
       if (w > (meta.width ?? 0) && w !== WIDTHS[0]) continue;
       const base = input.clone().resize({ width: Math.min(w, meta.width ?? w) });
-      await base.clone().webp({ quality: 82, alphaQuality: 90 }).toFile(join(outDir, `${name}-${w}.webp`));
-      await base.clone().avif({ quality: 55 }).toFile(join(outDir, `${name}-${w}.avif`));
+      await base
+        .clone()
+        .webp({ quality: 82, alphaQuality: 90 })
+        .toFile(join(outDir, `${name}-${w}.webp`));
+      await base
+        .clone()
+        .avif({ quality: 55 })
+        .toFile(join(outDir, `${name}-${w}.avif`));
     }
     console.log('converted', name);
   }
@@ -51,7 +57,8 @@ await sharp(svg)
 await sharp(join(PUB, 'og-image.png')).webp({ quality: 85 }).toFile(join(PUB, 'og-image.webp'));
 
 // Favicons from the mark.
-const mark = new URL('../website-handoff/assets/logo/kerbsense-mark-white-on-red.svg', import.meta.url).pathname;
+const mark = new URL('../website-handoff/assets/logo/kerbsense-mark-white-on-red.svg', import.meta.url)
+  .pathname;
 for (const [size, name] of [
   [32, 'favicon-32.png'],
   [192, 'icon-192.png'],
