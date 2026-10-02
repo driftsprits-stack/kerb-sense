@@ -124,4 +124,4 @@ The tab colour follows the section number in the cycle red, blue, green, yellow,
 - [x] Unit tests with coverage, E2E with axe, screenshots
 - [x] Audit script, CI workflows, Dependabot, CodeQL, Lighthouse, lychee, gitleaks
 - [x] Docs: README, ADRs, DR, LEGAL-REVIEW, CONTRIBUTING, COMPLIANCE
-- [ ] Pull request with screenshots and final report
+- [x] Pull request with screenshots and final report (driftsprits-stack/kerb-sense#1)
