@@ -1,14 +1,11 @@
-// Lighthouse CI: three runs per page on a simulated mid-range phone, with
-// Core Web Vitals budgets (standards E14, item 51).
+// Lighthouse CI: three runs per page against the preview server, with
+// Core Web Vitals budgets (standards E14, item 51). The 404 page is left
+// out because its noindex tag is intended and fails the SEO audit.
 module.exports = {
   ci: {
     collect: {
-      staticDistDir: './dist',
-      url: [
-        'http://localhost/kerb-sense/',
-        'http://localhost/kerb-sense/privacy/',
-        'http://localhost/kerb-sense/404.html',
-      ],
+      // The preview server must be running: npm run preview.
+      url: ['http://127.0.0.1:4173/kerb-sense/', 'http://127.0.0.1:4173/kerb-sense/privacy/'],
       numberOfRuns: 3,
       settings: {
         preset: 'desktop',
