@@ -1,0 +1,10 @@
+dist
+public
+coverage
+node_modules
+test-results
+playwright-report
+.lighthouseci
+website-handoff
+docs/screenshots
+package-lock.json

@@ -1,0 +1,380 @@
+/* Kerb Sense design tokens. Source: website-handoff/DESIGN.md.
+   Seven colours plus the paper ground. No other colour exists in this site. */
+@import 'tailwindcss' theme(static);
+
+@theme {
+  /* Remove Tailwind's default palette so only ks-* colours exist. */
+  --color-*: initial;
+  --color-white: #ffffff;
+  --color-black: #000000;
+  --color-red: #ac1e39;
+  --color-yellow: #e1b913;
+  --color-green: #178048;
+  --color-blue: #214ea0;
+  --color-lblue: #3d99c9;
+  --color-paper: #f2efe8;
+
+  --font-*: initial;
+  --font-sans: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+
+  /* Type scale from DESIGN.md: 12 / 14 / 16 / 20 / 28 / 40 / 64 / 96 / 160. */
+  --text-*: initial;
+  --text-12: 12px;
+  --text-12--line-height: 16px;
+  --text-14: 14px;
+  --text-14--line-height: 20px;
+  --text-16: 16px;
+  --text-16--line-height: 24px;
+  --text-20: 20px;
+  --text-20--line-height: 28px;
+  --text-28: 28px;
+  --text-28--line-height: 32px;
+  --text-28--letter-spacing: -0.02em;
+  --text-40: 40px;
+  --text-40--line-height: 44px;
+  --text-40--letter-spacing: -0.02em;
+  --text-64: clamp(40px, 6vw, 64px);
+  --text-64--line-height: 1;
+  --text-64--letter-spacing: -0.04em;
+  --text-96: clamp(48px, 9vw, 96px);
+  --text-96--line-height: 0.95;
+  --text-96--letter-spacing: -0.04em;
+  --text-160: clamp(64px, 14vw, 160px);
+  --text-160--line-height: 0.9;
+  --text-160--letter-spacing: -0.04em;
+
+  /* Spacing is multiples of 8px. */
+  --spacing: 8px;
+
+  --radius-*: initial;
+  --shadow-*: initial;
+  --blur-*: initial;
+  --animate-*: initial;
+}
+
+:root {
+  --ks-white: #ffffff;
+  --ks-black: #000000;
+  --ks-red: #ac1e39;
+  --ks-yellow: #e1b913;
+  --ks-green: #178048;
+  --ks-blue: #214ea0;
+  --ks-lblue: #3d99c9;
+  --ks-paper: #f2efe8;
+
+  /* The 12-column grid. */
+  --grid-columns: 12;
+  --grid-gutter: 24px;
+  --grid-margin: 24px;
+  --grid-max: 1440px;
+
+  /* Focus ring: 3px, square. Sections set --focus to white or black. */
+  --focus: var(--ks-black);
+}
+
+@media (min-width: 768px) {
+  :root {
+    --grid-margin: 48px;
+  }
+}
+
+@media (min-width: 1200px) {
+  :root {
+    --grid-margin: 80px;
+  }
+}
+
+@layer base {
+  * {
+    border-radius: 0 !important;
+  }
+  html {
+    background: var(--ks-paper);
+    color: var(--ks-black);
+    font-family: var(--font-sans);
+    font-size: 16px;
+    line-height: 1.5;
+    -webkit-text-size-adjust: 100%;
+    scroll-behavior: smooth;
+    overflow-x: clip;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+  }
+  body {
+    margin: 0;
+    background: var(--ks-paper);
+    overflow-x: clip;
+  }
+  h1,
+  h2,
+  h3,
+  h4,
+  p,
+  ul,
+  ol,
+  table,
+  figure {
+    margin: 0;
+  }
+  ul,
+  ol {
+    padding: 0;
+  }
+  img,
+  video,
+  svg,
+  canvas {
+    display: block;
+    max-width: 100%;
+  }
+  button {
+    font: inherit;
+    color: inherit;
+    background: none;
+    border: 0;
+    padding: 0;
+    cursor: pointer;
+  }
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+  :focus {
+    outline: none;
+  }
+  :focus-visible {
+    outline: 3px solid var(--focus);
+    outline-offset: 2px;
+  }
+  /* Hover is an instant state change. No transitions anywhere. */
+  *,
+  *::before,
+  *::after {
+    transition: none !important;
+  }
+  /* Square bullets only. */
+  ul.list {
+    list-style: square inside;
+  }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+  }
+}
+
+@layer components {
+  /* Page container on the 12-column grid. */
+  .ks-container {
+    width: 100%;
+    max-width: var(--grid-max);
+    margin-inline: auto;
+    padding-inline: var(--grid-margin);
+  }
+  .ks-grid {
+    display: grid;
+    grid-template-columns: repeat(var(--grid-columns), minmax(0, 1fr));
+    column-gap: var(--grid-gutter);
+  }
+  @media (max-width: 767px) {
+    .ks-grid {
+      --grid-columns: 4;
+    }
+  }
+
+  /* Display type. Tight tracking, letters never touch. */
+  .ks-display {
+    font-weight: 700;
+    letter-spacing: -0.04em;
+    line-height: 0.95;
+  }
+  .ks-h2 {
+    font-weight: 700;
+    font-size: var(--text-64);
+    letter-spacing: -0.04em;
+    line-height: 1;
+  }
+  .ks-h3 {
+    font-weight: 700;
+    font-size: var(--text-28);
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+  }
+
+  /* Ahoy label block: small black block, white bold text. */
+  .ks-label {
+    display: inline-block;
+    background: var(--ks-black);
+    color: var(--ks-white);
+    font-weight: 700;
+    font-size: 14px;
+    line-height: 20px;
+    padding: 4px 8px;
+  }
+
+  /* Solid button. Hover inverts instantly. Press moves 2px. */
+  .ks-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 8px;
+    font-weight: 700;
+    font-size: 20px;
+    line-height: 24px;
+    letter-spacing: -0.02em;
+    padding: 16px 24px;
+    border: 3px solid currentColor;
+    text-align: left;
+  }
+  .ks-button:active {
+    transform: translate(2px, 2px);
+  }
+  .ks-button--black {
+    background: var(--ks-black);
+    color: var(--ks-white);
+    border-color: var(--ks-black);
+  }
+  .ks-button--black:hover {
+    background: var(--ks-white);
+    color: var(--ks-black);
+  }
+  .ks-button--white {
+    background: var(--ks-white);
+    color: var(--ks-black);
+    border-color: var(--ks-black);
+  }
+  .ks-button--white:hover {
+    background: var(--ks-black);
+    color: var(--ks-white);
+  }
+  .ks-button--outline-white {
+    background: transparent;
+    color: var(--ks-white);
+    border-color: var(--ks-white);
+  }
+  .ks-button--outline-white:hover {
+    background: var(--ks-white);
+    color: var(--ks-black);
+  }
+
+  /* Text links: solid underline on hover. */
+  .ks-link {
+    text-decoration: underline;
+    text-decoration-thickness: 2px;
+    text-underline-offset: 3px;
+  }
+  .ks-link:hover {
+    text-decoration-thickness: 4px;
+  }
+
+  /* Swiss rules: 3px above tables and sections, 1px between rows. */
+  .ks-rule-3 {
+    border-top: 3px solid currentColor;
+  }
+  .ks-rule-1 {
+    border-top: 1px solid currentColor;
+  }
+  .ks-table {
+    border-top: 3px solid currentColor;
+  }
+  .ks-table th,
+  .ks-table td {
+    text-align: left;
+    vertical-align: top;
+    padding: 12px 16px 12px 0;
+    border-bottom: 1px solid currentColor;
+  }
+  .ks-table th {
+    font-weight: 700;
+    font-size: 14px;
+    line-height: 20px;
+  }
+
+  /* Ahoy section tab: a colour bar with a chevron end. */
+  .ks-tab {
+    display: inline-block;
+    color: var(--ks-white);
+    font-weight: 700;
+    font-size: var(--text-40);
+    letter-spacing: -0.02em;
+    line-height: 1;
+    padding: 16px 56px 16px 24px;
+    clip-path: polygon(0 0, calc(100% - 32px) 0, 100% 50%, calc(100% - 32px) 100%, 0 100%);
+  }
+  .ks-tab--left {
+    padding: 16px 24px 16px 56px;
+    clip-path: polygon(32px 0, 100% 0, 100% 100%, 32px 100%, 0 50%);
+  }
+  @media (max-width: 767px) {
+    .ks-tab {
+      font-size: var(--text-28);
+      padding: 12px 40px 12px 16px;
+      clip-path: polygon(0 0, calc(100% - 24px) 0, 100% 50%, calc(100% - 24px) 100%, 0 100%);
+    }
+    .ks-tab--left {
+      padding: 12px 16px 12px 40px;
+      clip-path: polygon(24px 0, 100% 0, 100% 100%, 24px 100%, 0 50%);
+    }
+  }
+
+  /* Hard mask for the SplitText slide: lines move, never fade. */
+  .ks-mask {
+    overflow: clip;
+  }
+
+  /* Sections set the field colour and the focus colour together. */
+  .field-paper {
+    background: var(--ks-paper);
+    color: var(--ks-black);
+    --focus: var(--ks-black);
+  }
+  .field-white {
+    background: var(--ks-white);
+    color: var(--ks-black);
+    --focus: var(--ks-black);
+  }
+  .field-black {
+    background: var(--ks-black);
+    color: var(--ks-white);
+    --focus: var(--ks-white);
+  }
+  .field-red {
+    background: var(--ks-red);
+    color: var(--ks-white);
+    --focus: var(--ks-white);
+  }
+  .field-blue {
+    background: var(--ks-blue);
+    color: var(--ks-white);
+    --focus: var(--ks-white);
+  }
+  .field-green {
+    background: var(--ks-green);
+    color: var(--ks-white);
+    --focus: var(--ks-white);
+  }
+  .field-yellow {
+    background: var(--ks-yellow);
+    color: var(--ks-black);
+    --focus: var(--ks-black);
+  }
+  .field-lblue {
+    background: var(--ks-lblue);
+    color: var(--ks-black);
+    --focus: var(--ks-black);
+  }
+
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+}
