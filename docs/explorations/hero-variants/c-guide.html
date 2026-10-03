@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Hero C: numbered crossing guide | Kerb Sense exploration</title>
+    <link rel="stylesheet" href="shared.css" />
+    <style>
+      /* C. Numbered crossing guide (WIRE01 running order): the six steps are
+         the hero, the booth is the small object that teaches them. */
+      body {
+        background: #000000;
+        color: #ffffff;
+      }
+      .bar {
+        border-color: #ffffff;
+      }
+      .hero {
+        display: grid;
+        gap: 24px;
+        padding: 24px 16px;
+      }
+      h1 {
+        font-family: 'Kerb Block';
+        font-weight: 400;
+        font-size: clamp(32px, 4.4vw, 64px);
+        line-height: 0.95;
+      }
+      .one {
+        margin-top: 12px;
+        font-size: 18px;
+        max-width: 34ch;
+      }
+      ol {
+        list-style: none;
+        padding: 0;
+        margin-top: 20px;
+        border-top: 3px solid #ffffff;
+      }
+      li {
+        display: flex;
+        align-items: baseline;
+        gap: 12px;
+        padding: 6px 0;
+        border-bottom: 1px solid #ffffff;
+        font-family: 'Kerb Block';
+        font-size: clamp(18px, 2.6vw, 34px);
+      }
+      li span {
+        width: 1.6em;
+        font-size: 0.6em;
+      }
+      li em {
+        font-style: normal;
+        color: #178048;
+        background: #ffffff;
+        padding: 0 6px;
+      }
+      .actions {
+        margin-top: 20px;
+        display: flex;
+        gap: 12px;
+      }
+      .btn {
+        border-color: #ffffff;
+        color: #ffffff;
+      }
+      .booth {
+        width: 46%;
+        justify-self: end;
+      }
+      @media (min-width: 900px) {
+        .hero {
+          grid-template-columns: 7fr 5fr;
+          padding: 40px 48px;
+          align-items: end;
+        }
+        .booth {
+          width: 100%;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="bar">
+      <img src="../../../src/assets/logo/kerbsense-wordmark-white.svg" alt="Kerb Sense" /><a
+        class="btn btn--green btn--small"
+        >PLAY</a
+      >
+    </div>
+    <section class="hero">
+      <div>
+        <h1>WAIT, AND YOU GET THERE FIRST.</h1>
+        <p class="one">A road-safety game and arcade booth for Singapore students.</p>
+        <ol>
+          <li><span>1</span>WAIT <em>[KERB]</em></li>
+          <li><span>2</span>LOOK <em>[RIGHT]</em></li>
+          <li><span>3</span>LOOK <em>[LEFT]</em></li>
+          <li><span>4</span>LOOK <em>[RIGHT AGAIN]</em></li>
+          <li><span>5</span>CROSS <em>[GREEN MAN]</em></li>
+          <li><span>6</span>PHONE <em>[AFTER]</em></li>
+        </ol>
+        <div class="actions"><a class="btn btn--green">PLAY</a><a class="btn">BOOTH</a></div>
+      </div>
+      <img class="booth" src="../../../src/assets/v2/renders/booth-light-three-quarter.svg" alt="" />
+    </section>
+  </body>
+</html>
