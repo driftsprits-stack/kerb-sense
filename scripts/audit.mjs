@@ -89,7 +89,9 @@ for (const file of [...html, ...siteJs]) {
 
 for (const file of html) {
   const text = readFileSync(file, 'utf8');
-  if (!/<title>[^<]+\| Kerb Sense<\/title>/.test(text))
+  // The home page leads with the name, so the browser tab reads "Kerb Sense".
+  // Every other page is "Page name | Kerb Sense" (L05).
+  if (!/<title>(?:Kerb Sense\. [^<]+|[^<]+\| Kerb Sense)<\/title>/.test(text))
     problems.push(`${file.replace(DIST, 'dist/')}: title format`);
   const desc = text.match(/<meta\s+name="description"\s+content="([^"]*)"/)?.[1] ?? '';
   if (!desc) problems.push(`${file.replace(DIST, 'dist/')}: no meta description`);
