@@ -13,7 +13,6 @@ export const SITE = {
   repo: 'https://github.com/driftsprits-stack/kerb-sense',
   team: 'TEAM if raeann cared',
   context: 'Delta Challenge 2026, Track B. Young ChangeMakers grant requested.',
-  safeLine: 'Stop somewhere safe before you play.',
   year: new Date().getFullYear(),
 } as const;
 
@@ -56,7 +55,7 @@ export const PROBLEM = {
     years: ['2024', '2025'],
   },
   source: 'Source: Singapore Police Force, Annual Road Traffic Situation 2025',
-  caveat: 'Not caused by phones or students.',
+  caveat: 'Not caused by phones or students',
 } as const;
 
 export const BOOTH = {
@@ -158,7 +157,8 @@ export const SAFETY = {
 export const BUDGET = {
   statusLabel: 'REQUESTED',
   body: 'S$3,000 requested. Not awarded yet.',
-  total: 'S$3,000 REQUESTED',
+  totalValue: 'S$3,000',
+  totalLabel: 'REQUESTED',
   chartAlt:
     'A bar chart of the requested budget: materials and logistics S$1,300, professional costs S$850, marketing S$450, food S$400, venue S$0.',
   lines: [

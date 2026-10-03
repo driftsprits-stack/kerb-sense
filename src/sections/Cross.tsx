@@ -48,7 +48,7 @@ function Clip() {
   return (
     <a
       href={playUrl}
-      className="group relative block border-[3px] border-black bg-black"
+      className="block border-[3px] border-black bg-black"
       data-testid="clip-link"
       aria-label={CROSS.clipAria}
     >
@@ -81,9 +81,6 @@ function Clip() {
           <source src={mp4} type="video/mp4" />
         </video>
       )}
-      <span className="ks-block absolute left-3 top-3 bg-green px-4 py-3 text-28 text-white group-hover:bg-white group-hover:text-black md:text-40">
-        {CROSS.play}
-      </span>
     </a>
   );
 }

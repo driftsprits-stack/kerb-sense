@@ -10,7 +10,6 @@ export default function Footer() {
     <footer className="field-black border-t-[3px] border-black" aria-label="Footer">
       <div className="ks-container py-8 md:py-10">
         <p className="text-16">{SITE.context}</p>
-        <p className="mt-2 text-14">{SITE.safeLine}</p>
         <div className="mt-6 flex flex-col gap-4 border-t-[3px] border-white pt-4 md:flex-row md:items-center md:justify-between">
           <a href={`${base}#top`} aria-label="Kerb Sense, go to the top of the page">
             <Logo variant="white" height={28} lazy />

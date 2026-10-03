@@ -179,7 +179,11 @@ export default function Booth() {
             </div>
           </div>
         </div>
-        <ol className="lg:col-span-5" aria-label="The booth in three parts" data-testid="booth-tour">
+        <ol
+          className="lg:col-span-5 [@media(min-width:1024px)_and_(min-height:700px)]:pb-[7vh]"
+          aria-label="The booth in three parts"
+          data-testid="booth-tour"
+        >
           {BOOTH.tour.map((t, i) => {
             const on = !manualOn && tour === i;
             return (

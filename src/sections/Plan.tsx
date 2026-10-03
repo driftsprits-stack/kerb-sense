@@ -26,14 +26,14 @@ export default function Plan() {
           </tbody>
         </table>
         <ul
-          className="grid grid-cols-2 gap-x-3 gap-y-4 border-t-[3px] border-black pt-3 md:col-span-7 md:grid-cols-3"
+          className="grid grid-cols-2 gap-x-3 gap-y-4 border-t-[3px] border-black pt-3 md:col-span-7 lg:grid-cols-3"
           data-testid="targets"
         >
           {PLAN.targets.map((t) => (
             <li key={t.label} className="border-b border-black pb-2">
               <LabelBlock colour="green">{PLAN.targetLabel}</LabelBlock>
               <p className="ks-block mt-2 text-white">
-                <Counter value={t.value} fontSize={56} className="text-black" />
+                <Counter value={t.value} fontSize="clamp(32px, 4.2vw, 56px)" className="text-black" />
               </p>
               <p className="ks-block mt-1 text-12">{t.label}</p>
             </li>

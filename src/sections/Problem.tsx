@@ -7,8 +7,8 @@ import { CHART_FATALITIES } from '../lib/artwork';
 export default function Problem() {
   return (
     <Section id="problem" slot={SLOT.problem} body={PROBLEM.body} tight>
-      {/* One column: the chart, then the caveat under the bars, then the source. */}
-      <div className="max-w-[720px]">
+      {/* One centred column: the chart, then the caveat under the bars, then the source. */}
+      <div className="mx-auto max-w-[800px]">
         {CHART_FATALITIES ? (
           <img
             src={CHART_FATALITIES}

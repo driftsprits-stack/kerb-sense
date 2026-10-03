@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import Logo from '../components/Logo';
-import { FOOTER, SITE } from '../content';
+import { FOOTER } from '../content';
 
 const base = import.meta.env.BASE_URL;
 
@@ -58,7 +58,6 @@ export default function PolicyPage({ title, lead, children }: PolicyPageProps) {
             ))}
           </ul>
           <p className="text-14">{FOOTER.copyright}</p>
-          <p className="inline-block bg-white px-2 py-1 text-14 font-bold text-black">{SITE.safeLine}</p>
         </div>
       </footer>
     </>

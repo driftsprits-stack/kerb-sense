@@ -68,7 +68,7 @@ export default function Stepper({ steps, icon, stepLabel }: StepperProps) {
           </div>
         </div>
       </div>
-      <Tabs.List className="flex border-t border-black" aria-label={stepLabel}>
+      <Tabs.List className="flex border border-black" aria-label={stepLabel}>
         {steps.map((s, i) => (
           <Tabs.Trigger
             key={s.id}

@@ -31,9 +31,10 @@ export default function Budget() {
           )}
         </div>
         <div className="md:col-span-4">
-          <p className="ks-block text-28 md:text-40" data-testid="budget-total">
-            {BUDGET.total}
-          </p>
+          <div className="inline-block bg-green px-4 py-3 text-white" data-testid="budget-total">
+            <p className="text-64 font-bold tracking-[-0.04em]">{BUDGET.totalValue}</p>
+            <p className="ks-block mt-2 text-20">{BUDGET.totalLabel}</p>
+          </div>
           <p className="mt-3 text-14">{BUDGET.source}</p>
         </div>
       </div>

@@ -24,9 +24,10 @@ export default function Nav({ current }: { current: SectionId | null }) {
           {currentName ?? ''}
         </p>
         <div className="flex shrink-0 items-center gap-2">
+          {/* Phones use the sticky PLAY bar at the bottom instead. */}
           <a
             href={`${base}play/`}
-            className="ks-button ks-button--green ks-button--small"
+            className="ks-button ks-button--green ks-button--small max-md:hidden"
             data-testid="nav-play"
           >
             PLAY

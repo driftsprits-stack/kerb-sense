@@ -7,7 +7,8 @@ import { gsap } from 'gsap';
 // value is shown at once.
 interface CounterProps {
   value: number;
-  fontSize?: number;
+  /** A px number or any CSS size, such as a clamp(), so the number fits its column. */
+  fontSize?: number | string;
   className?: string;
 }
 
@@ -18,7 +19,6 @@ export default function Counter({ value, fontSize = 96, className = '' }: Counte
   );
   // With reduced motion the final value is shown at once.
   const [started, setStarted] = useState(reduced);
-  const height = fontSize;
   const formatted = value.toLocaleString('en-SG');
   // Digits roll; the thousands comma stays still.
   const tokens = [...formatted].map((c) =>
@@ -48,9 +48,9 @@ export default function Counter({ value, fontSize = 96, className = '' }: Counte
     const columns = el.querySelectorAll<HTMLElement>('[data-digit]');
     const tween = gsap.fromTo(
       columns,
-      { y: 0 },
+      { yPercent: 0 },
       {
-        y: (i: number) => -Number(columns[i]?.dataset.digit ?? 0) * height,
+        yPercent: (i: number) => -Number(columns[i]?.dataset.digit ?? 0) * 10,
         duration: 1.2,
         ease: 'power3.out',
         stagger: 0.05,
@@ -60,7 +60,7 @@ export default function Counter({ value, fontSize = 96, className = '' }: Counte
     return () => {
       tween.kill();
     };
-  }, [started, height]);
+  }, [started]);
 
   // Before the animation starts, every column shows 0. After it ends, each
   // column has rolled to its digit. The accessible value is always the
@@ -69,13 +69,13 @@ export default function Counter({ value, fontSize = 96, className = '' }: Counte
     <span
       ref={ref}
       className={`inline-flex ks-mask align-bottom ${className}`}
-      style={{ height }}
+      style={{ fontSize, height: '1em', lineHeight: 1 }}
       aria-label={formatted}
       role="img"
     >
       {tokens.map((token, i) =>
         token.sep ? (
-          <span key={i} aria-hidden="true" style={{ fontSize, lineHeight: `${height}px` }}>
+          <span key={i} aria-hidden="true">
             {token.sep}
           </span>
         ) : (
@@ -83,15 +83,15 @@ export default function Counter({ value, fontSize = 96, className = '' }: Counte
             key={i}
             className="inline-flex flex-col items-center"
             aria-hidden="true"
-            style={{ fontSize, lineHeight: `${height}px`, fontWeight: 700, width: '0.78em' }}
+            style={{ fontWeight: 700, width: '0.78em' }}
           >
             <span
               data-digit={token.digit}
               className="flex flex-col"
-              style={reduced ? { transform: `translateY(${-token.digit * height}px)` } : undefined}
+              style={reduced ? { transform: `translateY(${-token.digit * 10}%)` } : undefined}
             >
               {Array.from({ length: 10 }, (_, n) => (
-                <span key={n} style={{ height, display: 'block' }}>
+                <span key={n} style={{ height: '1em', display: 'block' }}>
                   {n}
                 </span>
               ))}
