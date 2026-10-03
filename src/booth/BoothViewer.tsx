@@ -1,9 +1,9 @@
 import { Canvas, useFrame, type ThreeEvent } from '@react-three/fiber';
 import { Html, OrbitControls, Outlines, useGLTF } from '@react-three/drei';
 import { useEffect, useMemo, useRef, useState, type JSX, type RefObject } from 'react';
-import { Color, Group, Mesh, MeshBasicMaterial, Vector3, type Material, type Object3D } from 'three';
+import { Color, Mesh, MeshBasicMaterial, Vector3, type Material, type Object3D } from 'three';
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
-import { explodeOffset, nodeMoves, nodePart, partById_ } from '../lib/explode';
+import { nodePart, partById_ } from '../lib/parts';
 import { VIEWS, shortestAngle, type ViewName } from '../lib/views';
 
 // The booth, drawn flat. An orthographic camera, unlit MeshBasicMaterial in
@@ -31,10 +31,14 @@ export interface SceneDrive {
   active: boolean;
   /** Azimuth in radians. */
   azimuth: number;
-  /** Explode amount, 0 to 1. */
-  explode: number;
   /** The part to highlight, or null. */
   part: string | null;
+}
+
+/** The camera angles the viewer reports after each frame, for tests and labels. */
+export interface CameraReport {
+  azimuth: number;
+  polar: number;
 }
 
 function flatMaterial(source: Material | Material[]): MeshBasicMaterial[] {
@@ -45,7 +49,6 @@ function flatMaterial(source: Material | Material[]): MeshBasicMaterial[] {
 
 interface NodeProps {
   object: Object3D;
-  register: (name: string, group: Group) => void;
   registerMesh: (part: string, mesh: Mesh, base: MeshBasicMaterial[]) => void;
   onOver: (part: string, e: ThreeEvent<PointerEvent>) => void;
   onOut: () => void;
@@ -56,8 +59,8 @@ interface NodeProps {
 }
 
 // Rebuilds the GLB hierarchy as JSX, so drei's Outlines can sit inside each
-// mesh and the explode offsets can move each named group.
-function Node({ object, register, registerMesh, onOver, onOut, onClick, highlighted, inherited }: NodeProps) {
+// mesh and every mesh knows which part it belongs to.
+function Node({ object, registerMesh, onOver, onOut, onClick, highlighted, inherited }: NodeProps) {
   const part = nodePart(object.name) ?? inherited;
   const base = useMemo(
     () => ((object as Mesh).isMesh ? flatMaterial((object as Mesh).material) : null),
@@ -67,7 +70,6 @@ function Node({ object, register, registerMesh, onOver, onOut, onClick, highligh
     <Node
       key={child.uuid}
       object={child}
-      register={register}
       registerMesh={registerMesh}
       onOver={onOver}
       onOut={onOut}
@@ -83,7 +85,7 @@ function Node({ object, register, registerMesh, onOver, onOut, onClick, highligh
     const material: MeshBasicMaterial | MeshBasicMaterial[] =
       base.length === 1 ? (base[0] as MeshBasicMaterial) : base;
     return (
-      <group {...transform} ref={(g) => g && register(object.name, g)}>
+      <group {...transform}>
         <mesh
           geometry={mesh.geometry}
           material={material}
@@ -99,14 +101,13 @@ function Node({ object, register, registerMesh, onOver, onOut, onClick, highligh
     );
   }
   return (
-    <group {...transform} name={object.name} ref={(g) => g && register(object.name, g)}>
+    <group {...transform} name={object.name}>
       {children}
     </group>
   );
 }
 
 export interface BoothProps {
-  exploded: boolean;
   view: ViewName | null;
   onViewReached: () => void;
   selected: string | null;
@@ -115,10 +116,10 @@ export interface BoothProps {
   reduced: boolean;
   interactive: boolean;
   drive?: RefObject<SceneDrive> | undefined;
+  onCamera?: ((report: CameraReport) => void) | undefined;
 }
 
 function BoothModel({
-  exploded,
   view,
   onViewReached,
   selected,
@@ -127,20 +128,16 @@ function BoothModel({
   reduced,
   interactive,
   drive,
+  onCamera,
 }: BoothProps) {
   const { scene } = useGLTF(MODEL_URL);
   const controls = useRef<OrbitControlsImpl>(null);
-  const explodeT = useRef(0);
-  const groups = useRef(new Map<string, { group: Group; base: Vector3 }>());
   const meshes = useRef(new Map<string, { mesh: Mesh; base: MeshBasicMaterial[] }[]>());
   const [hovered, setHovered] = useState<{ part: string; point: Vector3 } | null>(null);
   const [scenePart, setScenePart] = useState<string | null>(null);
+  const lastReport = useRef<CameraReport>({ azimuth: NaN, polar: NaN });
   const highlighted = scenePart ?? selected;
 
-  const register = (name: string, group: Group) => {
-    if (!name || !nodeMoves(name)) return;
-    if (!groups.current.has(name)) groups.current.set(name, { group, base: group.position.clone() });
-  };
   const registerMesh = (part: string, mesh: Mesh, base: MeshBasicMaterial[]) => {
     const list = meshes.current.get(part) ?? [];
     if (!list.some((m) => m.mesh === mesh)) meshes.current.set(part, [...list, { mesh, base }]);
@@ -163,12 +160,11 @@ function BoothModel({
     }
   }, [highlighted]);
 
-  // Explode and snap run in the frame loop. The last input wins: a new view
-  // or toggle changes the target, and the loop moves toward it. When the
-  // scroll scene drives the booth, its values are the target.
+  // The camera snaps run in the frame loop. The last input wins: a new view
+  // changes the target and the loop moves toward it. When the scroll scene
+  // drives the booth, its azimuth is the target.
   useFrame((state, delta) => {
-    // Fit the booth to the stage height, whatever its size. The camera is
-    // the Canvas camera, so nothing resets its position when the size changes.
+    // Fit the booth to the stage height, whatever its size.
     const wantedZoom = state.size.height / VISIBLE_HEIGHT_M;
     if (Math.abs(state.camera.zoom - wantedZoom) > 0.5) {
       state.camera.zoom = wantedZoom;
@@ -180,38 +176,39 @@ function BoothModel({
     const wanted = driving ? (sceneDrive?.part ?? null) : null;
     if (wanted !== scenePart) setScenePart(wanted);
 
-    const target = driving ? (sceneDrive?.explode ?? 0) : exploded ? 1 : 0;
-    const speed = reduced || driving ? 1000 : 4;
-    explodeT.current +=
-      Math.sign(target - explodeT.current) * Math.min(Math.abs(target - explodeT.current), delta * speed);
-    for (const [name, { group, base }] of groups.current) {
-      const [x, y, z] = explodeOffset(name, explodeT.current);
-      group.position.set(base.x + x, base.y + y, base.z + z);
-    }
-
     const ctrl = controls.current;
     if (!ctrl) return;
     let goal: { azimuth: number; polar: number } | null = null;
     if (driving) goal = { azimuth: sceneDrive?.azimuth ?? 0, polar: Math.PI / 2 };
     else if (view) goal = VIEWS[view];
-    if (!goal) return;
-    const az = ctrl.getAzimuthalAngle();
-    const po = ctrl.getPolarAngle();
-    const dAz = shortestAngle(az, goal.azimuth);
-    const dPo = goal.polar - po;
-    const k = reduced || driving ? 1 : Math.min(1, delta * 8);
-    const nextAz = az + dAz * k;
-    const nextPo = po + dPo * k;
-    ctrl.minAzimuthAngle = nextAz;
-    ctrl.maxAzimuthAngle = nextAz;
-    ctrl.minPolarAngle = nextPo;
-    ctrl.maxPolarAngle = nextPo;
-    ctrl.update();
-    ctrl.minAzimuthAngle = -Infinity;
-    ctrl.maxAzimuthAngle = Infinity;
-    ctrl.minPolarAngle = 0;
-    ctrl.maxPolarAngle = Math.PI;
-    if (!driving && Math.abs(dAz) < 0.002 && Math.abs(dPo) < 0.002) onViewReached();
+    if (goal) {
+      const az = ctrl.getAzimuthalAngle();
+      const po = ctrl.getPolarAngle();
+      const dAz = shortestAngle(az, goal.azimuth);
+      const dPo = goal.polar - po;
+      const k = reduced || driving ? 1 : Math.min(1, delta * 8);
+      const nextAz = az + dAz * k;
+      const nextPo = po + dPo * k;
+      ctrl.minAzimuthAngle = nextAz;
+      ctrl.maxAzimuthAngle = nextAz;
+      ctrl.minPolarAngle = nextPo;
+      ctrl.maxPolarAngle = nextPo;
+      ctrl.update();
+      ctrl.minAzimuthAngle = -Infinity;
+      ctrl.maxAzimuthAngle = Infinity;
+      ctrl.minPolarAngle = 0;
+      ctrl.maxPolarAngle = Math.PI;
+      if (!driving && Math.abs(dAz) < 0.002 && Math.abs(dPo) < 0.002) onViewReached();
+    }
+    // Report the camera when it moves, rounded so the report is quiet.
+    const report = {
+      azimuth: Math.round(ctrl.getAzimuthalAngle() * 100) / 100,
+      polar: Math.round(ctrl.getPolarAngle() * 100) / 100,
+    };
+    if (report.azimuth !== lastReport.current.azimuth || report.polar !== lastReport.current.polar) {
+      lastReport.current = report;
+      onCamera?.(report);
+    }
   });
 
   const onOver = (part: string, e: ThreeEvent<PointerEvent>) => {
@@ -247,7 +244,6 @@ function BoothModel({
           <Node
             key={child.uuid}
             object={child}
-            register={register}
             registerMesh={registerMesh}
             onOver={onOver}
             onOut={onOut}
@@ -260,7 +256,7 @@ function BoothModel({
       {hovered && (
         <Html position={hovered.point} center zIndexRange={[20, 0]} style={{ pointerEvents: 'none' }}>
           <span className="ks-label whitespace-nowrap text-16" data-testid="booth-label">
-            {partById_(hovered.part)?.name ?? 'Cabinet'}
+            {partById_(hovered.part)?.name ?? 'CABINET'}
           </span>
         </Html>
       )}

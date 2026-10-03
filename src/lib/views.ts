@@ -16,14 +16,17 @@ export const VIEWS: Record<ViewName, ViewAngles> = {
   top: { azimuth: 0, polar: 0.001 },
 };
 
+/** The three-quarter angle the scroll scene starts from. */
+export const THREE_QUARTER = Math.PI / 4;
+
 export const VIEW_ORDER: ViewName[] = ['front', 'side', 'back', 'top'];
 
-/** View names, without a decorative full stop (DESIGN.md section 2). */
+/** View names in Kerb Block, without a full stop. */
 export const VIEW_LABELS: Record<ViewName, string> = {
-  front: 'Front',
-  side: 'Side',
-  back: 'Back',
-  top: 'Top',
+  front: 'FRONT',
+  side: 'SIDE',
+  back: 'BACK',
+  top: 'TOP',
 };
 
 export function isViewName(value: string): value is ViewName {
@@ -37,4 +40,12 @@ export function shortestAngle(from: number, to: number): number {
   if (diff > Math.PI) diff -= twoPi;
   if (diff < -Math.PI) diff += twoPi;
   return diff;
+}
+
+/** True when the camera is within tolerance of a view, for tests and labels. */
+export function atView(view: ViewName, azimuth: number, polar: number, tolerance = 0.05): boolean {
+  const goal = VIEWS[view];
+  return (
+    Math.abs(shortestAngle(azimuth, goal.azimuth)) < tolerance && Math.abs(polar - goal.polar) < tolerance
+  );
 }

@@ -3,44 +3,39 @@ import SectionTab from './SectionTab';
 import { SECTIONS, type SectionId } from '../content';
 import { COPY } from '../copy';
 
-// One section of the reading journey: the green tab, one large summary
-// sentence, the detail, then a "Next" signpost to the next section.
+// One section: the green tab with the title from the pool, an optional
+// status word, one sentence of at most 25 words, then the detail.
 interface SectionProps {
   id: SectionId;
   slot: string;
-  summary: string;
+  body: string;
   field?: 'paper' | 'black';
   children: ReactNode;
   status?: ReactNode;
+  tight?: boolean;
 }
 
-export default function Section({ id, slot, summary, field = 'paper', children, status }: SectionProps) {
+export default function Section({ id, slot, body, field = 'paper', children, status, tight }: SectionProps) {
   const meta = SECTIONS.find((s) => s.id === id);
   if (!meta) throw new Error(`Unknown section ${id}`);
-  const index = SECTIONS.indexOf(meta);
-  const next = SECTIONS[index + 1];
   const title = COPY[slot] ?? '';
   const ground = field === 'black' ? 'field-black' : 'field-paper';
-  const rule = field === 'black' ? 'border-white' : 'border-black';
   return (
     <section
       id={id}
-      className={`${ground} border-t-[3px] border-black scroll-mt-16`}
+      className={`${ground} scroll-mt-8 border-t-[3px] border-black`}
       aria-labelledby={`${id}-title`}
       data-section={id}
     >
-      <div className="ks-container py-12 md:py-20">
-        <div className="flex flex-wrap items-center gap-4">
+      <div className={`ks-container ${tight ? 'py-8 md:py-10' : 'py-10 md:py-14'}`}>
+        <div className="flex flex-wrap items-center gap-3">
           <SectionTab number={meta.number} title={title} slot={slot} id={`${id}-title`} />
           {status}
         </div>
-        <p className="ks-summary mt-10">{summary}</p>
-        <div className="mt-10">{children}</div>
-        <p className={`mt-12 border-t ${rule} pt-4 text-16 font-bold`}>
-          <a href={next ? `#${next.id}` : '#top'} className="ks-link" data-testid={`next-${id}`}>
-            {meta.next}
-          </a>
+        <p className="ks-summary mt-5" data-testid={`${id}-body`}>
+          {body}
         </p>
+        <div className="mt-6">{children}</div>
       </div>
     </section>
   );

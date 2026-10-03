@@ -1,5 +1,5 @@
 import { BOOTH } from '../content';
-import { PARTS } from '../lib/explode';
+import { PARTS } from '../lib/parts';
 import type { ViewName } from '../lib/views';
 
 // The static renders. Shown when WebGL is missing, motion is reduced, or

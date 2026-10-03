@@ -1,70 +1,46 @@
-import * as Tabs from '@radix-ui/react-tabs';
+import Counter from '../bits/Counter';
 import Section from '../components/Section';
-import { StatusLabel } from '../components/LabelBlock';
+import LabelBlock, { StatusLabel } from '../components/LabelBlock';
 import { PLAN } from '../content';
 import { SLOT } from '../copy';
 
-// The six-month programme, in future tense. Desktop: a Swiss table.
-// Phone: a stepper on Radix Tabs (the React Bits Stepper pattern without
-// its opacity transitions and shadow).
+// The six-month plan as a ruled table, and the six targets as big numbers
+// with small labels. Every number carries "TARGET". Each counter rolls once.
 export default function Plan() {
   return (
     <Section
       id="plan"
       slot={SLOT.plan}
-      summary={PLAN.summary}
+      body={PLAN.body}
       status={<StatusLabel>{PLAN.statusLabel}</StatusLabel>}
     >
-      <p className="inline-block bg-black px-2 py-1 text-14 font-bold text-white">{PLAN.note}</p>
-
-      <table className="ks-table mt-8 hidden md:table">
-        <thead>
-          <tr>
-            <th scope="col" className="w-24">
-              Month
-            </th>
-            <th scope="col">What we will do</th>
-            <th scope="col" className="w-[30%]">
-              What it produces
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {PLAN.months.map((m) => (
-            <tr key={m.month}>
-              <td className="ks-display text-40">{m.month}</td>
-              <td className="text-16">{m.activities}</td>
-              <td className="text-14">{m.outputs}</td>
-            </tr>
+      <div className="grid gap-6 md:grid-cols-12">
+        <table className="ks-table ks-block md:col-span-5" data-testid="plan-table">
+          <tbody>
+            {PLAN.months.map((m) => (
+              <tr key={m.month}>
+                <td className="w-12 text-28">{m.month}</td>
+                <td className="text-14">{m.what}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <ul
+          className="grid grid-cols-2 gap-x-3 gap-y-4 border-t-[3px] border-black pt-3 md:col-span-7 md:grid-cols-3"
+          data-testid="targets"
+        >
+          {PLAN.targets.map((t) => (
+            <li key={t.label} className="border-b border-black pb-2">
+              <LabelBlock colour="green">{PLAN.targetLabel}</LabelBlock>
+              <p className="ks-block mt-2 text-white">
+                <Counter value={t.value} fontSize={56} className="text-black" />
+              </p>
+              <p className="ks-block mt-1 text-12">{t.label}</p>
+            </li>
           ))}
-        </tbody>
-      </table>
-
-      <Tabs.Root
-        defaultValue="1"
-        className="mt-8 border-t-[3px] border-black md:hidden"
-        data-testid="stepper"
-      >
-        <Tabs.List className="flex" aria-label="Months">
-          {PLAN.months.map((m) => (
-            <Tabs.Trigger
-              key={m.month}
-              value={String(m.month)}
-              className="flex h-12 flex-1 items-center justify-center border-r border-black text-20 font-bold last:border-r-0 data-[state=active]:bg-green data-[state=active]:text-white"
-              aria-label={`Month ${m.month}`}
-            >
-              {m.month}
-            </Tabs.Trigger>
-          ))}
-        </Tabs.List>
-        {PLAN.months.map((m) => (
-          <Tabs.Content key={m.month} value={String(m.month)} className="border-t border-black pt-4">
-            <p className="ks-label">Month {m.month}</p>
-            <p className="mt-3 text-16 font-bold">{m.activities}</p>
-            <p className="mt-2 text-14">{m.outputs}</p>
-          </Tabs.Content>
-        ))}
-      </Tabs.Root>
+        </ul>
+      </div>
+      <p className="mt-4 text-14">{PLAN.source}</p>
     </Section>
   );
 }

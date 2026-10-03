@@ -21,13 +21,13 @@ export default function PolicyPage({ title, lead, children }: PolicyPageProps) {
           </a>
           <ul className="flex items-center gap-5 text-14 font-bold">
             <li>
-              <a href={base} className="ks-link">
-                Home
+              <a href={base} className="ks-button ks-button--outline-black ks-button--small">
+                HOME
               </a>
             </li>
             <li>
-              <a href={`${base}play/`} className="bg-green px-3 py-1 text-white hover:bg-black">
-                Play
+              <a href={`${base}play/`} className="ks-button ks-button--green ks-button--small">
+                PLAY
               </a>
             </li>
           </ul>
@@ -37,7 +37,7 @@ export default function PolicyPage({ title, lead, children }: PolicyPageProps) {
         <div className="ks-container py-12 md:py-20">
           <div className="ks-grid gap-y-10">
             <div className="col-span-4 md:col-span-5">
-              <h1 className="ks-display text-64 md:text-96">{title}</h1>
+              <h1 className="ks-display text-40 md:text-64">{title}</h1>
               <p className="mt-6 text-20">{lead}</p>
             </div>
             <div className="col-span-4 md:col-span-6 md:col-start-7">
@@ -48,10 +48,10 @@ export default function PolicyPage({ title, lead, children }: PolicyPageProps) {
       </main>
       <footer className="field-black border-t-[3px] border-black">
         <div className="ks-container flex flex-col gap-4 py-8 md:flex-row md:items-center md:justify-between">
-          <ul className="flex flex-wrap gap-x-6 gap-y-2 text-14 font-bold">
+          <ul className="ks-block flex flex-wrap gap-1 text-14">
             {FOOTER.links.map((l) => (
               <li key={l.href}>
-                <a href={`${base}${l.href}`} className="ks-link">
+                <a href={`${base}${l.href}`} className="ks-cell border border-white px-3 py-2">
                   {l.label}
                 </a>
               </li>

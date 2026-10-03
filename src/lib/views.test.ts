@@ -28,3 +28,14 @@ describe('views', () => {
     expect(shortestAngle(0.1, 0.1 + 4 * Math.PI)).toBeCloseTo(0);
   });
 });
+
+describe('atView', () => {
+  it('reports when the camera sits at a view', async () => {
+    const { atView, THREE_QUARTER } = await import('./views');
+    expect(atView('front', 0.01, Math.PI / 2)).toBe(true);
+    expect(atView('side', Math.PI / 2, Math.PI / 2)).toBe(true);
+    expect(atView('top', 0, 0.01)).toBe(true);
+    expect(atView('front', THREE_QUARTER, Math.PI / 2)).toBe(false);
+    expect(atView('back', Math.PI / 2, Math.PI / 2)).toBe(false);
+  });
+});
