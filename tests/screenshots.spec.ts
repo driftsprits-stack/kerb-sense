@@ -1,14 +1,14 @@
 import { test, expect } from '@playwright/test';
 
-// Screenshot regression at 375, 768 and 1440px (standards E13 and section 7).
-// The images are written to docs/screenshots/ and compared with the committed
-// baselines. Run with --update-snapshots after an intended visual change.
+// Full-page screenshots of every route at 375, 768, 1024 and 1440 px, with
+// reduced motion and the default copy (standards E13). They are attached to
+// the Playwright report. The review images in docs/screenshots/ are made by
+// scripts/screenshots.mjs, which also captures the scroll scenes.
 const ROUTES: [string, string][] = [
-  ['home', './'],
+  ['home', './?copy=default'],
   ['play', './play/'],
   ['privacy', './privacy/'],
   ['terms', './terms/'],
-  ['cookies', './cookies/'],
   ['not-found', './404.html'],
 ];
 

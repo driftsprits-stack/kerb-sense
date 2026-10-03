@@ -2,6 +2,17 @@
 
 The full proposal text is in `source/proposal-full-text.txt`; it is the source of truth for facts and numbers. This file picks out what should be public and lists what must **not** be published.
 
+## Status of everything (label it correctly on the site)
+
+| Thing | Status today | How to word it |
+|---|---|---|
+| The browser game | **Exists and is live** | "Play it now" |
+| The arcade booth | **A finished 3D design. Not built yet.** The cabinets are built in the funded period. | "The booth we will build" / "Designed by the team" Never "built". |
+| The six-month schools programme | **Planned** | "We plan to..." Use future tense. |
+| Participating schools | **Not confirmed yet** (School A, B and C are placeholders in the proposal) | Do not name any school. Say "three participating schools". |
+| The S$3,000 YCM grant | **Requested, not awarded** | "Funding requested" |
+| Targets (900, 1,500 ...) | **Targets only, nothing measured yet** | Label every number "Target". |
+
 ## Do NOT publish
 
 - Anything from `Kerb_Sense_YCM_Team_and_Outreach.xlsx`: phone numbers, emails, partial NRIC numbers, years of birth, race, residential status. (This file is deliberately not in the handoff.)
@@ -40,7 +51,7 @@ The full proposal text is in `source/proposal-full-text.txt`; it is the source o
 
 ## The booth (the hero of the site)
 
-- A portable, DIY wooden tabletop arcade cabinet, built by the team. There will be **three stations**, one per school, plus one backup bundle.
+- A portable, DIY wooden tabletop arcade cabinet, **designed by the team** (3D design finished; to be built during the funded period). The plan is **three stations**, one per school, plus one backup bundle.
 - Students play without taking out their own phones. Controls: **four movement buttons and a joystick with a built-in button** (as modelled).
 - Model dimensions: **61.7 cm wide × 71.2 cm deep × 66.8 cm tall**.
 - Build (from the budget): cut-to-size 12 mm MDF or plywood, a 24-inch monitor opening, joystick and button cut-outs, a rear access panel with hinges and two latches, rounded edges, and ventilation slots.
@@ -70,7 +81,12 @@ These are **targets**, so label them as such:
 
 ## Safety and privacy (section 10 of the proposal)
 
-No accounts and no personal profiles; only anonymous, aggregate session data. Non-graphic failure screens. Play happens only in stationary school locations, with school staff present, after the school's parental consent process. Observation uses anonymous tallies only: no photos, names or identifying details.
+Keep these three things separate in all privacy copy:
+- **The website:** collects nothing. No cookies, no analytics, no forms, no third-party scripts.
+- **The live game (`/play/`):** stores nothing. Checked in the game code on 2 Oct 2026: no localStorage, sessionStorage, IndexedDB, cookies or network requests.
+- **The future school programme (planned):** at the booths, the team plans to count anonymous, aggregate session numbers (no accounts, no personal profiles), plus anonymous observation tallies at crossings. This has not started.
+
+Other safety points: non-graphic failure screens. Play happens only in stationary school locations, with school staff present, after the school's parental consent process. Observation uses anonymous tallies only: no photos, names or identifying details.
 
 ## Team (public: first names only, with role and institution)
 
@@ -99,3 +115,17 @@ Top items: three DIY cabinets (S$360), four USB arcade control kits (S$140), a b
 ## References
 
 Use section 14 of the proposal (SPF and NCPC Delta Challenge 2026 Track B briefing; SPF Annual Road Traffic Situation 2025; Duperrex, Roberts and Bunn 2002, Cochrane; Riaz et al. 2019).
+
+## Japanese accents and the running order (approved strings)
+
+| Text | Meaning | Where |
+|---|---|---|
+| カーブセンス | Kerb Sense (katakana) | vertical column in Kerb Block |
+| 待てば、先に着く。 | Wait, and you get there first. | hero, vertical, Noto Sans JP |
+| 渡り方 | How to cross | label above the running order |
+| あそぶ | Play | next to the PLAY label |
+
+Running order, WIRE-flyer style (Kerb Block; the word in white, the bracket in green):
+`WAIT [KERB]:` / `LOOK [BOTH WAYS]:` / `LISTEN [TRAFFIC]:` / `CROSS [GREEN MAN]:` / `PHONE [AFTER]:`
+
+Do not add other Japanese without the owner's approval.

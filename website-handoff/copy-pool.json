@@ -1,0 +1,79 @@
+{
+  "version": 1,
+  "about": "Rotating display copy for the Kerb Sense website. On each page load the site picks one entry per slot at random. The first entry in each slot is the default (used for tests, no-JavaScript and print). Pool written with Astra and checked against WEBSITE-STANDARDS.md (lengths, full stops, banned characters and words).",
+  "slots": {
+    "hero.headline": [
+      "Wait, and you get there first.",
+      "Waiting is the winning move.",
+      "At the kerb, waiting wins.",
+      "Waiting at the kerb comes first.",
+      "Win by waiting at the kerb.",
+      "The kerb is a good place to wait.",
+      "Take your time at the kerb.",
+      "A safe crossing is worth the wait.",
+      "Phone away, wait for green.",
+      "Wait first, cross with care."
+    ],
+    "section.problem.title": [
+      "The problem.",
+      "Phones take attention.",
+      "Screens draw eyes away.",
+      "Phones at crossings.",
+      "Phones distract."
+    ],
+    "section.answer.title": [
+      "Our answer.",
+      "Game, booth, programme.",
+      "Our three-part plan.",
+      "A plan in three parts.",
+      "Our road-safety plan."
+    ],
+    "section.booth.title": [
+      "The booth.",
+      "The arcade booth design.",
+      "A planned arcade booth.",
+      "Our portable booth plan."
+    ],
+    "section.game.title": [
+      "The game.",
+      "The browser game.",
+      "Play the browser game.",
+      "A free game about roads.",
+      "A game you can play now."
+    ],
+    "section.plan.title": [
+      "The plan.",
+      "Our six-month plan.",
+      "Six months, planned.",
+      "The schools plan."
+    ],
+    "section.measure.title": [
+      "How we will measure it.",
+      "Our plan to measure.",
+      "What we will count.",
+      "How we will check.",
+      "Checking for change."
+    ],
+    "section.safety.title": [
+      "Safe by design.",
+      "Safety and privacy.",
+      "Care with play and data.",
+      "Safe play and privacy.",
+      "Our safety rules."
+    ],
+    "section.team.title": [
+      "The team.",
+      "Five students.",
+      "Made by five students.",
+      "Five students, one team.",
+      "Students from Singapore."
+    ],
+    "section.budget.title": [
+      "The budget.",
+      "S$3,000 requested.",
+      "Our S$3,000 request.",
+      "The grant we seek.",
+      "Our planned spending."
+    ]
+  }
+}

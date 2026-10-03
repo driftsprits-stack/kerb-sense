@@ -18,13 +18,15 @@ export default defineConfig({
         main: resolve(__dirname, 'index.html'),
         privacy: resolve(__dirname, 'privacy/index.html'),
         terms: resolve(__dirname, 'terms/index.html'),
-        cookies: resolve(__dirname, 'cookies/index.html'),
         notFound: resolve(__dirname, '404.html'),
       },
       output: {
         // three.js and the viewer live in their own lazy chunk.
         manualChunks: (id) => {
           if (/node_modules\/(three|@react-three|three-stdlib|meshoptimizer)\//.test(id)) return 'three';
+          // React stays in its own chunk, so the three.js chunk is never a
+          // dependency of the first paint.
+          if (/node_modules\/(react|react-dom|scheduler)\//.test(id)) return 'react';
           return undefined;
         },
       },

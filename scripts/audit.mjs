@@ -105,13 +105,29 @@ for (const file of html) {
   }
 }
 
-// Image size limits: no image over 300 KB except the hero.
+// Image size limits: no image over 300 KB. SVG art must use the palette.
 for (const file of files) {
-  if (!/\.(webp|avif|png|jpg)$/.test(file)) continue;
+  if (!/\.(webp|avif|png|jpg|svg)$/.test(file)) continue;
   const size = statSync(file).size;
-  if (size > 300 * 1024 && !/silhouette-side-1600/.test(file)) {
+  if (size > 300 * 1024)
     problems.push(`${file.replace(DIST, 'dist/')}: image is ${Math.round(size / 1024)} KB`);
+  if (file.endsWith('.svg')) {
+    const text = readFileSync(file, 'utf8');
+    const colours = [...new Set((text.match(/#[0-9a-fA-F]{6}\b/g) ?? []).map((c) => c.toLowerCase()))];
+    const bad = colours.filter((c) => !PALETTE.has(c));
+    if (bad.length)
+      problems.push(`${file.replace(DIST, 'dist/')}: off-palette colour in SVG (${bad.join(', ')})`);
   }
+}
+
+// Only the hero headline and the section titles end with a decorative full
+// stop. UI labels do not (A15). The E2E tests check the rendered DOM; here
+// the fixed copy is checked at the source.
+const content = readFileSync(new URL('../src/content.ts', import.meta.url), 'utf8');
+for (const m of content.matchAll(
+  /(?:play|booth|explode|assemble|link|statusLabel|badge|name|clipLabel|backToTop|loading)\s*:\s*'([^']*)'/g,
+)) {
+  if (m[1].endsWith('.')) problems.push(`src/content.ts: UI label "${m[1]}" ends with a full stop`);
 }
 
 // The GLB must be under 1 MB.

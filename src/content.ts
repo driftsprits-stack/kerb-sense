@@ -1,5 +1,9 @@
-// All site copy. Every fact comes from website-handoff/CONTENT.md and the
-// proposal. Headlines end with a full stop (Ahoy). No em dashes, no emoji.
+// All fixed site copy. Every fact comes from website-handoff/CONTENT.md and
+// the proposal. Status words follow the status table in CONTENT.md: the
+// game exists, the booth is designed and not built, the programme is
+// planned, the grant is requested, the numbers are targets.
+// Only the hero headline and the section titles (src/copy.ts) end with a
+// decorative full stop. Buttons, labels, names and captions do not.
 
 export const SITE = {
   name: 'Kerb Sense',
@@ -10,114 +14,106 @@ export const SITE = {
   repo: 'https://github.com/driftsprits-stack/kerb-sense',
   team: 'TEAM if raeann cared',
   context:
-    'Delta Challenge 2026, Track B, Road Safety Education. Organised by the Singapore Police Force and the National Crime Prevention Council, with the National Youth Council Young ChangeMakers grant.',
+    'Delta Challenge 2026, Track B, Road Safety Education. Organised by the Singapore Police Force and the National Crime Prevention Council, with the National Youth Council Young ChangeMakers grant (funding requested).',
   safeLine: 'Stop somewhere safe before you play.',
   year: new Date().getFullYear(),
 } as const;
 
-export const NAV = [
-  { id: 'problem', label: 'problem' },
-  { id: 'game', label: 'game' },
-  { id: 'booth', label: 'booth' },
-  { id: 'programme', label: 'programme' },
-  { id: 'targets', label: 'targets' },
-  { id: 'safety', label: 'safety' },
-  { id: 'team', label: 'team' },
-  { id: 'budget', label: 'budget' },
+/** The approved Japanese strings (CONTENT.md). Each one carries its English meaning. */
+export const JA = {
+  name: { text: 'カーブセンス', meaning: 'Kerb Sense' },
+  tagline: { text: '待てば、先に着く。', meaning: 'Wait, and you get there first.' },
+  howToCross: { text: '渡り方', meaning: 'How to cross' },
+  play: { text: 'あそぶ', meaning: 'Play' },
+} as const;
+
+/** The reading order. The index, the header and the "Next" links use it. */
+export const SECTIONS = [
+  { id: 'problem', number: 1, name: 'The problem', next: 'Next: our answer' },
+  { id: 'answer', number: 2, name: 'Our answer', next: 'Next: explore the booth' },
+  { id: 'booth', number: 3, name: 'The booth', next: 'Next: play the game' },
+  { id: 'game', number: 4, name: 'The game', next: 'Next: the six-month plan' },
+  { id: 'plan', number: 5, name: 'The plan', next: 'Next: how we will measure it' },
+  { id: 'measure', number: 6, name: 'How we will measure it', next: 'Next: safety and privacy' },
+  { id: 'safety', number: 7, name: 'Safe by design', next: 'Next: the team' },
+  { id: 'team', number: 8, name: 'The team', next: 'Next: the budget' },
+  { id: 'budget', number: 9, name: 'The budget', next: 'Back to top' },
 ] as const;
 
+export type SectionId = (typeof SECTIONS)[number]['id'];
+
 export const HERO = {
-  kicker: 'A road-safety game and arcade booth for students in Singapore.',
-  headline: 'Wait, and you get there first.',
+  kicker: 'A road-safety game and a planned arcade booth for primary and secondary students in Singapore',
   body: SITE.oneLiner,
-  play: 'Play the game.',
-  booth: 'See the booth.',
-  clipLabel: 'Play.',
-  clipCaption: 'Real gameplay on the Teenager profile. Click to play the game.',
+  who: 'For students. Judged by the people who keep them safe.',
+  play: 'Play the game',
+  booth: 'See the booth',
+  title: 'KERB SENSE',
+  boothAlt:
+    'The Kerb Sense arcade booth design: a white tabletop cabinet with a black marquee, a screen, four green buttons and a joystick.',
 } as const;
 
 export const PROBLEM = {
-  headline: 'The problem.',
-  lead: 'Students use phones while they walk and cross. A phone takes attention from the road. Near misses and accidents become more likely.',
+  summary: 'Students use phones while they cross. A phone takes attention from the road.',
+  body: [
+    'The Delta Challenge 2026 Track B brief names phone distraction among pedestrians, particularly students, as the problem. Near misses and accidents become more likely when attention is on a screen.',
+    'Most students know the rules. Knowing a rule is not the same as following it. Students need to practise decisions, not only hear them. Kerb Sense starts with primary and secondary school students, before unsafe habits form.',
+  ],
+  stat: { value: '142 to 149', label: 'road fatalities in Singapore, 2024 to 2025' },
+  stat2: { value: '11 to 27', label: 'elderly pedestrian fatalities, 2024 to 2025' },
+  source: 'Source: Singapore Police Force, Annual Road Traffic Situation 2025',
+  caveat:
+    'These figures are not caused by phone use or by students. They show why road-safety education still matters.',
+} as const;
+
+export const ANSWER = {
+  summary: 'A game you can play now, a booth we will build, and a programme we plan to run.',
   columns: [
     {
-      title: 'The brief.',
-      body: 'The Delta Challenge 2026 Track B brief names phone distraction among pedestrians, particularly students, as the problem to solve.',
+      id: 'game',
+      status: 'Exists',
+      title: 'The game',
+      body: 'A free browser game. It is live and playable now. Safe decisions score.',
+      link: 'Play the game',
+      href: 'play/',
     },
     {
-      title: 'Start earlier.',
-      body: 'Kerb Sense works with primary and secondary school students, before unsafe habits form.',
+      id: 'booth',
+      status: 'Designed',
+      title: 'The booth',
+      body: 'A portable tabletop arcade cabinet, designed by the team. We will build three in the funded period.',
+      link: 'Explore the booth',
+      href: '#booth',
     },
     {
-      title: 'Practise, not posters.',
-      body: 'Most students know the rules. Knowing a rule is not the same as following it. Students need to practise decisions, not only hear them.',
+      id: 'programme',
+      status: 'Planned',
+      title: 'The programme',
+      body: 'Six months in three participating schools, with student ambassadors and anonymous observation.',
+      link: 'See the plan',
+      href: '#plan',
     },
   ],
-  stats: [
-    { value: '142 to 149', label: 'Road fatalities in Singapore, 2024 to 2025.' },
-    { value: '11 to 27', label: 'Elderly pedestrian fatalities, 2024 to 2025.' },
-  ],
-  statsSource: 'Source: Singapore Police Force, Annual Road Traffic Situation 2025.',
-  caveat:
-    'These figures are not caused by phone use or by students. They show that road-safety education stays important.',
 } as const;
-
-export const GAME = {
-  headline: 'The game.',
-  lead: 'A short browser game. You cross Singapore-inspired roads while your phone competes for your attention. Safe decisions score. Unsafe decisions cost you for the rest of the run.',
-  pledge: 'I solemnly swear not to check my phone while crossing.',
-  pledgeButton: 'I promise.',
-  pledgeNote: 'The game opens with this pledge. You see it again in the debrief.',
-  rules: [
-    { title: 'You only see where you look.', body: 'A vision cone follows your aim.' },
-    { title: 'Green means cars are braking, not that the road is clear.', body: 'Some drivers run the red.' },
-    { title: 'Cross between the dashed lines.', body: 'Crossing there on green pushes the wall back.' },
-    {
-      title: 'The warning triangle means do not cross yet.',
-      body: 'A speeding car is coming and it sounds its horn.',
-    },
-    { title: 'Your message can wait.', body: 'Notifications queue. Answer them back on the pavement.' },
-    { title: 'Keep moving.', body: 'A wall chases you. Waiting at a red signal pauses it.' },
-    { title: 'Earphones are a real distraction.', body: 'While music plays you cannot hear the horn.' },
-    {
-      title: 'Failure is never graphic.',
-      body: 'Every failed run names the unsafe decision and the real-world habit that would have prevented it.',
-    },
-  ],
-  profilesTitle: 'Three profiles.',
-  profiles: [
-    { id: 'primary', name: 'Primary School.', body: 'Music on. You will not hear them coming.' },
-    { id: 'teenager', name: 'Teenager.', body: 'Music, plus phone notifications that will not stop.' },
-    { id: 'office', name: 'Office Worker.', body: 'Music, the boss, and a full cup of kopi.' },
-  ],
-  embedTitle: 'Try it here.',
-  embedLoad: 'Load the game.',
-  embedLoading: 'Loading the game.',
-  embedFull: 'Open full screen.',
-  embedNewPage: 'Open in a new page.',
-  embedError: 'The game did not load. Open it in a new page.',
-  embedHint: 'Arrow keys or WASD move. Space answers a message. Escape pauses.',
-  embedPhone: 'On a phone, the game opens in its own page.',
-  iframeTitle: 'Kerb Sense, the game',
-} as const;
-
-export const ROAD_BAND = ['Look.', 'Listen.', 'Cross.', 'Then check.'] as const;
 
 export const BOOTH = {
-  headline: 'The booth.',
-  lead: 'A portable wooden tabletop arcade cabinet, built by the team. Students play on the booth, so nobody takes out a phone.',
-  viewerTitle: 'Turn it. Take it apart.',
-  viewerHint: 'Drag to rotate. Hover or tap a part to see its name.',
-  explode: 'Explode.',
-  assemble: 'Assemble.',
-  loading: 'Loading the booth.',
-  error: 'The 3D booth did not load. These are the flat renders.',
-  reducedMotion: 'Motion is reduced on this device. These are the flat renders.',
-  noWebgl: 'This browser cannot show 3D. These are the flat renders.',
-  canvasLabel: 'A 3D model of the Kerb Sense arcade booth. Drag to rotate.',
-  catalogueTitle: 'The parts.',
-  specTitle: 'The specification.',
+  summary:
+    'A portable arcade booth, designed by the team, to be built. Students play without taking out a phone.',
+  statusLabel: 'Designed, to be built',
+  viewerTitle: 'Explore the booth',
+  viewerHint: 'Drag to turn it. Select a part to see what it does.',
+  explode: 'Explode',
+  assemble: 'Assemble',
+  loading: 'Loading the booth',
+  error: 'The 3D booth did not load. These are the flat renders',
+  reducedMotion: 'Motion is reduced on this device. These are the flat renders',
+  noWebgl: 'This browser cannot show 3D. These are the flat renders',
+  canvasLabel: 'A 3D model of the Kerb Sense arcade booth design. Drag to turn it.',
+  catalogueTitle: 'The parts',
+  catalogueHint: 'Select a part here to highlight it on the model.',
+  specTitle: 'The design',
   specs: [
+    ['Status', 'A finished 3D design. Not built yet. The cabinets are built in the funded period.'],
     ['Width', '61.7 cm'],
     ['Depth', '71.2 cm'],
     ['Height', '66.8 cm'],
@@ -126,118 +122,171 @@ export const BOOTH = {
     ['Controls', 'Four movement buttons and a joystick with a built-in button'],
     ['Access', 'Rear panel with two hinges and two latches'],
     ['Finish', 'Rounded edges and ventilation slots'],
-    ['Stations', 'Three, one per school, plus one backup bundle'],
-    ['Computer', 'Team-owned. The grant funds only the controls, connections and cabinet materials.'],
+    ['Stations', 'Three planned, one per school, plus one backup bundle'],
+    ['Computer', 'Team-owned. The grant would fund only the controls, connections and cabinet materials'],
   ],
-  where: 'The booth is set up only in safe, stationary areas inside schools.',
-  elevationsAlt:
-    'Three flat elevation drawings of the red booth: the front with the screen and controls, the side profile, and the back with the ventilation slots.',
+  where: 'The booth is for safe, stationary areas inside schools',
 } as const;
 
-export const PROGRAMME = {
-  headline: 'The programme.',
-  lead: 'Six months, three schools.',
+export const GAME = {
+  summary:
+    'The game is live. You cross Singapore-inspired roads while your phone competes for your attention.',
+  statusLabel: 'Live now',
+  clipLabel: 'PLAY',
+  clipCaption: 'Real gameplay on the Teenager profile. Select it to play the game',
+  clipAria: 'Play the game. A real gameplay clip of Kerb Sense.',
+  pledge: 'I solemnly swear not to check my phone while crossing.',
+  pledgeButton: 'I promise',
+  pledgeNote: 'The game opens with this pledge. You see it again in the debrief.',
+  rulesTitle: 'The rules',
+  rules: [
+    { title: 'You only see where you look', body: 'A vision cone follows your aim.' },
+    { title: 'Green means cars are braking, not that the road is clear', body: 'Some drivers run the red.' },
+    { title: 'Cross between the dashed lines', body: 'Crossing there on green pushes the wall back.' },
+    {
+      title: 'The warning triangle means do not cross yet',
+      body: 'A speeding car is coming and it sounds its horn.',
+    },
+    { title: 'Your message can wait', body: 'Notifications queue. Answer them back on the pavement.' },
+    { title: 'Keep moving', body: 'A wall chases you. Waiting at a red signal pauses it.' },
+    { title: 'Earphones are a real distraction', body: 'While music plays you cannot hear the horn.' },
+    {
+      title: 'Failure is never graphic',
+      body: 'Every failed run names the unsafe decision and the real-world habit that would have prevented it.',
+    },
+  ],
+  profilesTitle: 'Three profiles',
+  profiles: [
+    { id: 'primary', name: 'Primary School', body: 'Music on. You will not hear them coming.' },
+    { id: 'teenager', name: 'Teenager', body: 'Music, plus phone notifications that will not stop.' },
+    { id: 'office', name: 'Office Worker', body: 'Music, the boss, and a full cup of kopi.' },
+  ],
+  /** The WIRE-style running order. The word is white, the bracket is green. */
+  runningOrder: [
+    { word: 'WAIT', bracket: '[KERB]:' },
+    { word: 'LOOK', bracket: '[BOTH WAYS]:' },
+    { word: 'LISTEN', bracket: '[TRAFFIC]:' },
+    { word: 'CROSS', bracket: '[GREEN MAN]:' },
+    { word: 'PHONE', bracket: '[AFTER]:' },
+  ],
+  play: 'Play the game',
+  controls: 'Arrow keys or WASD move. Space answers a message. Escape pauses.',
+} as const;
+
+export const ROAD_BAND = ['LOOK', 'LISTEN', 'CROSS', 'THEN CHECK'] as const;
+
+export const PLAN = {
+  summary: 'We plan six months in three participating schools.',
+  statusLabel: 'Planned',
+  note: 'The schools are not confirmed yet. The proposal calls them School A, B and C.',
   months: [
     {
       month: 1,
       activities:
-        'Permissions, matched baseline observations, student interviews, school and parental consent, final design lock.',
-      outputs: 'Confirmed sites. Baseline dataset. Observation protocol.',
+        'We will get permissions, run matched baseline observations and student interviews, complete school and parental consent, and lock the final design.',
+      outputs: 'Confirmed sites, a baseline dataset and an observation protocol',
     },
     {
       month: 2,
-      activities: 'Prototype refinement, accessibility work, playtesting with at least 30 students.',
-      outputs: 'Pilot-ready game. Playtest report. Safety checklist.',
+      activities:
+        'We will refine the prototype, do accessibility work, and playtest with at least 30 students.',
+      outputs: 'A pilot-ready game, a playtest report and a safety checklist',
     },
     {
       month: 3,
-      activities: 'Train ambassadors. Launch School A.',
-      outputs: 'School A live. First session dataset.',
+      activities: 'We will train ambassadors and launch the first school.',
+      outputs: 'The first school live, and the first session dataset',
     },
     {
       month: 4,
-      activities: 'Refine and launch School B. Continue School A.',
-      outputs: 'School B live. Interim improvement log.',
+      activities: 'We will refine the game, launch the second school and continue the first.',
+      outputs: 'The second school live, and an interim improvement log',
     },
     {
       month: 5,
-      activities: 'Launch School C. Interim observations at the earlier schools.',
-      outputs: 'Three schools live. Interim observation dataset.',
+      activities: 'We will launch the third school and run interim observations at the earlier schools.',
+      outputs: 'Three schools live, and an interim observation dataset',
     },
     {
       month: 6,
-      activities: 'Impact report, open toolkit, three-school handover.',
-      outputs: 'Impact report. Open toolkit. Three-school handover.',
+      activities:
+        'We will write the impact report, publish the open toolkit and hand over to the three schools.',
+      outputs: 'The impact report, the open toolkit and the handover',
     },
   ],
 } as const;
 
-export const TARGETS = {
-  headline: 'The targets.',
-  lead: 'Targets, not results. The pilot has not run yet.',
-  badge: 'Target.',
+export const MEASURE = {
+  summary: 'Six targets. Nothing is measured yet.',
+  badge: 'Target',
   items: [
-    { value: 900, prefix: '', suffix: '', label: 'student participants.' },
-    { value: 1500, prefix: '', suffix: '', label: 'game sessions.' },
-    { value: 20, prefix: '', suffix: '', label: 'student ambassadors trained.' },
+    { value: 900, prefix: '', suffix: '', label: 'student participants' },
+    { value: 1500, prefix: '', suffix: '', label: 'game sessions' },
+    { value: 20, prefix: '', suffix: '', label: 'student ambassadors trained' },
     {
       value: 20,
-      prefix: 'At least ',
+      prefix: 'At least',
       suffix: '%',
-      label: 'relative reduction in visible phone use while crossing at the pilot sites.',
+      label: 'relative reduction in visible phone use while crossing at the pilot sites',
     },
     {
       value: 20,
-      prefix: 'At least ',
-      suffix: ' pt',
-      label: 'improvement in safe-crossing rate between the first run and the coached replay.',
+      prefix: 'At least',
+      suffix: 'pt',
+      label: 'percentage-point improvement in safe-crossing rate, first run against coached replay',
     },
     {
       value: 75,
-      prefix: 'At least ',
+      prefix: 'At least',
       suffix: '%',
-      label: 'of exit respondents recall the correct phone-check sequence.',
+      label: 'of exit respondents recall the correct phone-check sequence',
     },
   ],
-  source: 'Source: the Kerb Sense proposal, section 6.',
-  link: 'See the programme.',
+  how: 'How we will measure it: observers will count visible phone use while crossing with anonymous tallies at each site, at baseline and at the end. The game will compare each player’s first run with their coached replay inside one session, with no identifier. A one-minute exit question will check whether players can state the sequence: finish crossing, use the marked crossing, wait for the signal.',
+  source: 'Source: the Kerb Sense proposal, section 6',
 } as const;
 
 export const SAFETY = {
-  headline: 'Safe by design.',
+  summary: 'The game teaches safe crossing. Nothing here may encourage phone use near a road.',
   big: SITE.safeLine,
-  lead: 'The game teaches safe crossing. The campaign must never encourage phone use near a road.',
+  website: {
+    title: 'This website',
+    body: 'Collects nothing. No cookies, no analytics, no forms and no third-party scripts.',
+  },
+  game: {
+    title: 'The live game',
+    body: 'Stores nothing. We checked the game code on 2 October 2026: no localStorage, sessionStorage, IndexedDB, cookies or network requests.',
+  },
+  programme: {
+    title: 'The planned school programme',
+    body: 'At the booths, the team plans to count anonymous, aggregate session numbers, with no accounts and no personal profiles, plus anonymous observation tallies at crossings. This has not started.',
+  },
   items: [
     {
-      title: 'No accounts and no profiles.',
-      body: 'The game stores no personal data. It records only anonymous, aggregate session measures.',
-    },
-    {
-      title: 'Failure is never graphic.',
+      title: 'Failure is never graphic',
       body: 'No collision is shown. A failed run cuts to a results screen that explains the decision.',
     },
     {
-      title: 'Play only when stationary.',
-      body: 'Play happens only in stationary school locations, with school staff present, after the school parental consent process.',
+      title: 'Play only when stationary',
+      body: 'Play would happen only in stationary school locations, with school staff present, after the school parental consent process.',
     },
     {
-      title: 'Observation is anonymous.',
-      body: 'Observers use anonymous tallies only. No photos, names or identifying details are collected.',
+      title: 'Observation stays anonymous',
+      body: 'Observers would use anonymous tallies only. No photos, names or identifying details.',
     },
     {
-      title: 'Sound and motion controls.',
+      title: 'Sound and motion controls',
       body: 'The game supports reduced motion and keyboard navigation. Sound can be muted.',
     },
     {
-      title: 'Students under 18.',
-      body: 'All sessions are arranged through the school and run in the presence of a member of school staff.',
+      title: 'Students under 18',
+      body: 'All sessions would be arranged through the school and run with a member of school staff present.',
     },
   ],
 } as const;
 
 export const TEAM = {
-  headline: 'The team.',
-  lead: `${SITE.team}. Five students from Yishun Innova Junior College, Singapore Polytechnic and Ngee Ann Polytechnic.`,
+  summary: `${SITE.team}: five students from three institutions in Singapore.`,
   members: [
     { role: 'Project Lead', name: 'Brenden', institution: 'Singapore Polytechnic' },
     { role: 'Technical Lead', name: 'Justin', institution: 'Ngee Ann Polytechnic' },
@@ -248,28 +297,29 @@ export const TEAM = {
 } as const;
 
 export const BUDGET = {
-  headline: 'The budget.',
-  lead: 'S$3,000 requested.',
+  summary: 'S$3,000 requested. Not awarded yet.',
+  statusLabel: 'Requested',
   lines: [
-    { category: 'Venue', amount: 0, colour: 'black' },
-    { category: 'Marketing and publicity', amount: 450, colour: 'blue' },
-    { category: 'Food and beverages', amount: 400, colour: 'yellow' },
-    { category: 'Project materials and logistics', amount: 1300, colour: 'red' },
-    { category: 'Professional costs', amount: 850, colour: 'lblue' },
+    { category: 'Venue', amount: 0 },
+    { category: 'Marketing and publicity', amount: 450 },
+    { category: 'Food and beverages', amount: 400 },
+    { category: 'Project materials and logistics', amount: 1300 },
+    { category: 'Professional costs (illustration, sound, translation)', amount: 850 },
   ],
-  topTitle: 'Top items.',
+  topTitle: 'Top items',
   top: [
-    'Three DIY cabinets, S$360.',
-    'Four USB arcade control kits, S$140.',
-    'A backup display and computer bundle, S$250.',
-    'Original illustration and sound design, S$700.',
+    'Three DIY cabinets, S$360',
+    'Four USB arcade control kits, S$140',
+    'A backup display and computer bundle, S$250',
+    'Original illustration and sound design, S$700',
   ],
-  note: 'No grant money goes to cash prizes or to team members.',
+  note: 'No grant money would go to cash prizes or to team members.',
+  source: 'Source: the Kerb Sense proposal, section 9',
 } as const;
 
 export const FOOTER = {
   context: SITE.context,
-  referencesTitle: 'References.',
+  referencesTitle: 'References',
   references: [
     'Singapore Police Force and National Crime Prevention Council (2026). Delta Challenge 2026 Track B: Road Safety Education briefing, 1 August 2026.',
     'Singapore Police Force and National Crime Prevention Council (2026). Rules and Regulations for Delta Challenge 2026 Track B: Problem-Based Statement Challenge.',
@@ -282,11 +332,11 @@ export const FOOTER = {
     riaz: 'https://doi.org/10.1007/s00779-019-01221-4',
   },
   links: [
-    { href: 'privacy/', label: 'Privacy.' },
-    { href: 'terms/', label: 'Terms of use.' },
-    { href: 'cookies/', label: 'Cookies.' },
-    { href: 'play/', label: 'Play.' },
+    { href: 'privacy/', label: 'Privacy and cookies' },
+    { href: 'terms/', label: 'Terms of use' },
+    { href: 'play/', label: 'Play' },
   ],
-  source: 'Source code on GitHub.',
-  copyright: `© ${SITE.year} Kerb Sense.`,
+  source: 'Source code on GitHub',
+  backToTop: 'Back to top',
+  copyright: `© ${SITE.year} Kerb Sense`,
 } as const;

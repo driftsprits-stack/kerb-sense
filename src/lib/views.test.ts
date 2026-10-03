@@ -6,7 +6,7 @@ describe('views', () => {
     expect(VIEW_ORDER).toEqual(['front', 'side', 'back', 'top']);
     for (const name of VIEW_ORDER) {
       expect(VIEWS[name]).toBeDefined();
-      expect(VIEW_LABELS[name].endsWith('.')).toBe(true);
+      expect(VIEW_LABELS[name].endsWith('.')).toBe(false);
     }
   });
 

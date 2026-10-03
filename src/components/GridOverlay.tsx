@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { gridColumnsFor } from '../lib/grid';
 
-// The "Show the grid." overlay. Columns are drawn as dashed lane markings
+// The "Show the grid" overlay. Columns are drawn as dashed lane markings
 // on the same 12-column grid the page uses. It never animates.
 export default function GridOverlay({ visible }: { visible: boolean }) {
   const [columns, setColumns] = useState(() =>
@@ -21,12 +21,8 @@ export default function GridOverlay({ visible }: { visible: boolean }) {
       <div className="ks-container h-full">
         <div className="ks-grid h-full" style={{ ['--grid-columns' as string]: columns }}>
           {Array.from({ length: columns }, (_, i) => (
-            <div
-              key={i}
-              className="relative h-full border-l border-r border-dashed border-black"
-              style={{ mixBlendMode: 'difference', borderColor: 'var(--ks-white)' }}
-            >
-              <span className="absolute top-20 left-0 bg-black px-1 text-12 font-bold text-white">
+            <div key={i} className="relative h-full border-l border-r border-dashed border-green">
+              <span className="absolute left-0 top-20 bg-green px-1 text-12 font-bold text-white">
                 {i + 1}
               </span>
             </div>

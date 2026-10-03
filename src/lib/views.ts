@@ -18,11 +18,12 @@ export const VIEWS: Record<ViewName, ViewAngles> = {
 
 export const VIEW_ORDER: ViewName[] = ['front', 'side', 'back', 'top'];
 
+/** View names, without a decorative full stop (DESIGN.md section 2). */
 export const VIEW_LABELS: Record<ViewName, string> = {
-  front: 'Front.',
-  side: 'Side.',
-  back: 'Back.',
-  top: 'Top.',
+  front: 'Front',
+  side: 'Side',
+  back: 'Back',
+  top: 'Top',
 };
 
 export function isViewName(value: string): value is ViewName {
