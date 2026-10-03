@@ -1,38 +1,14 @@
 import * as Dialog from '@radix-ui/react-dialog';
-import * as Toggle from '@radix-ui/react-toggle';
 import Logo from './Logo';
 import { SECTIONS, type SectionId } from '../content';
 
-interface NavProps {
-  gridOn: boolean;
-  onGridChange: (on: boolean) => void;
-  current: SectionId | null;
-}
-
 const base = import.meta.env.BASE_URL;
 
-function GridToggle({
-  gridOn,
-  onGridChange,
-  className = '',
-}: Omit<NavProps, 'current'> & { className?: string }) {
-  return (
-    <Toggle.Root
-      pressed={gridOn}
-      onPressedChange={onGridChange}
-      aria-label="Show the grid"
-      data-testid="grid-toggle"
-      className={`border-[3px] border-current px-3 py-1 text-14 font-bold hover:bg-black hover:text-white data-[state=on]:bg-black data-[state=on]:text-white ${className}`}
-    >
-      {gridOn ? 'Hide the grid' : 'Show the grid'}
-    </Toggle.Root>
-  );
-}
-
-// The header: the logo, the current section name, "Play" and the menu.
-// The section list lives in the sticky index on wide screens and in the
-// menu everywhere, so the header never overflows at any width.
-export default function Nav({ gridOn, onGridChange, current }: NavProps) {
+// The header: the logo, the PLAY button and, below 1280 px, the MENU
+// button. The menu is a full-screen numbered list (the React Bits
+// Staggered Menu layout on the existing Radix dialog). It opens at once:
+// no motion, no opacity.
+export default function Nav({ current }: { current: SectionId | null }) {
   const currentName = SECTIONS.find((s) => s.id === current)?.name;
   return (
     <header className="field-paper sticky top-0 z-50 border-b-[3px] border-black">
@@ -40,35 +16,37 @@ export default function Nav({ gridOn, onGridChange, current }: NavProps) {
         <a href={`${base}#top`} className="shrink-0" aria-label="Kerb Sense, go to the top of the page">
           <Logo height={22} />
         </a>
-
         <p
-          className="min-w-0 flex-1 truncate text-14 font-bold xl:hidden"
+          className="ks-block min-w-0 flex-1 truncate text-14 xl:hidden"
           aria-live="polite"
           data-testid="current-section"
         >
           {currentName ?? ''}
         </p>
-
-        <div className="flex shrink-0 items-center gap-3">
-          <GridToggle gridOn={gridOn} onGridChange={onGridChange} className="hidden md:inline-flex" />
-          <a href={`${base}play/`} className="bg-green px-4 py-1 text-14 font-bold text-white hover:bg-black">
-            Play
+        <div className="flex shrink-0 items-center gap-2">
+          {/* Phones use the sticky PLAY bar at the bottom instead. */}
+          <a
+            href={`${base}play/`}
+            className="ks-button ks-button--green ks-button--small max-md:hidden"
+            data-testid="nav-play"
+          >
+            PLAY
           </a>
           <Dialog.Root>
             <Dialog.Trigger asChild>
               <button
                 type="button"
-                className="border-[3px] border-black px-3 py-1 text-14 font-bold hover:bg-black hover:text-white"
+                className="ks-button ks-button--outline-black ks-button--small xl:hidden"
                 aria-label="Open the menu"
                 data-testid="menu-open"
               >
-                Menu
+                MENU
               </button>
             </Dialog.Trigger>
             <Dialog.Portal>
               <Dialog.Overlay className="fixed inset-0 z-[60] bg-black" />
               <Dialog.Content
-                className="field-black fixed inset-0 z-[70] flex flex-col overflow-y-auto p-6"
+                className="field-black fixed inset-0 z-[70] flex flex-col overflow-y-auto p-3"
                 aria-describedby={undefined}
                 data-testid="menu"
               >
@@ -81,35 +59,29 @@ export default function Nav({ gridOn, onGridChange, current }: NavProps) {
                   <Dialog.Close asChild>
                     <button
                       type="button"
-                      className="border-[3px] border-white px-3 py-1 text-14 font-bold hover:bg-white hover:text-black"
+                      className="ks-button ks-button--outline-white ks-button--small"
                       aria-label="Close the menu"
                       data-testid="menu-close"
                     >
-                      Close
+                      CLOSE
                     </button>
                   </Dialog.Close>
                 </div>
-                <ol className="mt-10 flex flex-col">
+                <ol className="ks-block mt-6 flex flex-col">
                   {SECTIONS.map((s) => (
                     <li key={s.id} className="border-b border-white">
                       <Dialog.Close asChild>
-                        <a
-                          href={`#${s.id}`}
-                          className="flex items-baseline gap-4 py-3 text-28 font-bold hover:text-green"
-                        >
-                          <span className="w-8 text-16">{s.number}</span>
+                        <a href={`#${s.id}`} className="ks-cell flex items-baseline gap-4 py-3 text-28">
+                          <span className="w-6 text-16">{s.number}</span>
                           {s.name}
                         </a>
                       </Dialog.Close>
                     </li>
                   ))}
                 </ol>
-                <div className="mt-auto flex flex-col gap-3 pt-8">
-                  <GridToggle gridOn={gridOn} onGridChange={onGridChange} className="self-start" />
-                  <a href={`${base}play/`} className="ks-button ks-button--green">
-                    Play the game
-                  </a>
-                </div>
+                <a href={`${base}play/`} className="ks-button ks-button--green mt-auto">
+                  PLAY
+                </a>
               </Dialog.Content>
             </Dialog.Portal>
           </Dialog.Root>
@@ -119,7 +91,7 @@ export default function Nav({ gridOn, onGridChange, current }: NavProps) {
   );
 }
 
-/** Sticky "Play" for phones. It sits above the safe area and under no content. */
+/** Sticky PLAY for phones. It sits above the safe area and under no content. */
 export function StickyPlay() {
   return (
     <div
@@ -129,12 +101,9 @@ export function StickyPlay() {
     >
       <a
         href={`${base}play/`}
-        className="flex h-7 items-center justify-between border-t-[3px] border-black bg-green px-3 text-20 font-bold text-white hover:bg-black"
+        className="ks-block flex h-7 items-center justify-center border-t-[3px] border-black bg-green text-20 text-white hover:bg-black"
       >
-        <span>Play the game</span>
-        <span className="ks-block text-16" aria-hidden="true">
-          PLAY
-        </span>
+        PLAY
       </a>
     </div>
   );

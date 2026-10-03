@@ -17,11 +17,9 @@ export function longest(slot: string): string {
 export const SLOT = {
   hero: 'hero.headline',
   problem: 'section.problem.title',
-  answer: 'section.answer.title',
   booth: 'section.booth.title',
-  game: 'section.game.title',
+  cross: 'section.game.title',
   plan: 'section.plan.title',
-  measure: 'section.measure.title',
   safety: 'section.safety.title',
   team: 'section.team.title',
   budget: 'section.budget.title',

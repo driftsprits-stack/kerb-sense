@@ -1,70 +1,41 @@
 import Section from '../components/Section';
+import { BudgetChart } from '../components/Drawings';
 import { StatusLabel } from '../components/LabelBlock';
 import { BUDGET } from '../content';
 import { SLOT } from '../copy';
-import { BUDGET_TOTAL, barPercent, formatSgd, sumBudget } from '../lib/budget';
+import { CHART_BUDGET } from '../lib/artwork';
 
-// Flat green bars on paper, in a real table, on a 0 to S$3,000 scale.
 export default function Budget() {
-  const total = sumBudget(BUDGET.lines);
   return (
     <Section
       id="budget"
       slot={SLOT.budget}
-      summary={BUDGET.summary}
+      body={BUDGET.body}
       status={<StatusLabel>{BUDGET.statusLabel}</StatusLabel>}
+      tight
     >
-      <div className="ks-grid gap-y-10">
-        <div className="col-span-4 md:col-span-8">
-          <table className="ks-table" data-testid="budget-table">
-            <caption className="sr-only">Budget requested by category, in Singapore dollars</caption>
-            <thead>
-              <tr>
-                <th scope="col" className="w-[40%]">
-                  Category
-                </th>
-                <th scope="col">Share of {formatSgd(BUDGET_TOTAL)}</th>
-                <th scope="col" className="w-20 text-right">
-                  S$
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {BUDGET.lines.map((line) => (
-                <tr key={line.category}>
-                  <td className="text-16 font-bold">{line.category}</td>
-                  <td>
-                    <div className="h-8 w-full border border-black">
-                      <div
-                        className="h-full bg-green"
-                        style={{ width: `${barPercent(line.amount, total)}%` }}
-                        role="img"
-                        aria-label={`${Math.round(barPercent(line.amount, total))} percent`}
-                      />
-                    </div>
-                  </td>
-                  <td className="text-right text-16 font-bold">{line.amount.toLocaleString('en-SG')}</td>
-                </tr>
-              ))}
-              <tr>
-                <td className="text-16 font-bold">Total requested</td>
-                <td />
-                <td className="text-right text-16 font-bold">{total.toLocaleString('en-SG')}</td>
-              </tr>
-            </tbody>
-          </table>
-          <p className="mt-3 text-14">{BUDGET.source}</p>
+      <div className="grid gap-4 md:grid-cols-12">
+        <div className="md:col-span-8">
+          {CHART_BUDGET ? (
+            <img
+              src={CHART_BUDGET}
+              alt={BUDGET.chartAlt}
+              width={640}
+              height={260}
+              loading="lazy"
+              decoding="async"
+              className="w-full"
+            />
+          ) : (
+            <BudgetChart lines={BUDGET.lines} title={BUDGET.chartAlt} />
+          )}
         </div>
-        <div className="col-span-4 md:col-span-4">
-          <h3 className="ks-h3">{BUDGET.topTitle}</h3>
-          <ul className="list mt-3 text-16">
-            {BUDGET.top.map((t) => (
-              <li key={t} className="border-b border-black py-2">
-                {t}
-              </li>
-            ))}
-          </ul>
-          <p className="mt-6 inline-block bg-black px-2 py-1 text-14 font-bold text-white">{BUDGET.note}</p>
+        <div className="md:col-span-4">
+          <div className="inline-block bg-green px-4 py-3 text-white" data-testid="budget-total">
+            <p className="text-64 font-bold tracking-[-0.04em]">{BUDGET.totalValue}</p>
+            <p className="ks-block mt-2 text-20">{BUDGET.totalLabel}</p>
+          </div>
+          <p className="mt-3 text-14">{BUDGET.source}</p>
         </div>
       </div>
     </Section>

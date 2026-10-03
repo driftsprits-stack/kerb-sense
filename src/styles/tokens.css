@@ -57,10 +57,8 @@
   --text-18--line-height: 24px;
   --text-28: 28px;
   --text-28--line-height: 32px;
-  --text-28--letter-spacing: -0.02em;
-  --text-40: 40px;
-  --text-40--line-height: 44px;
-  --text-40--letter-spacing: -0.02em;
+  --text-40: clamp(28px, 3.2vw, 40px);
+  --text-40--line-height: 1.1;
   --text-48: clamp(32px, 4.2vw, 48px);
   --text-48--line-height: 1;
   --text-48--letter-spacing: -0.04em;
@@ -217,44 +215,45 @@
     }
   }
 
-  /* Display type: Helvetica, tight tracking, letters never touch. */
+  /* Every heading, title, button, label and number is Kerb Block. Only
+     sentences are Helvetica Neue. Lowercase input maps to capitals. */
+  .ks-block,
+  .ks-display,
+  .ks-h3,
+  .ks-label,
+  .ks-button,
+  .ks-tab {
+    font-family: var(--font-block);
+    font-weight: 400;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+  }
+  .ks-block {
+    line-height: 1;
+  }
   .ks-display {
-    font-weight: 700;
-    letter-spacing: -0.04em;
     line-height: 0.95;
   }
   .ks-h3 {
-    font-weight: 700;
     font-size: var(--text-28);
-    letter-spacing: -0.02em;
-    line-height: 1.15;
+    line-height: 1.1;
   }
-  /* The one large summary sentence that opens each section. */
+  /* The one sentence under each title. Helvetica Neue, at most 25 words. */
   .ks-summary {
-    font-weight: 700;
-    font-size: var(--text-40);
-    letter-spacing: -0.02em;
-    line-height: 1.05;
-    max-width: 24ch;
+    font-weight: 400;
+    font-size: var(--text-20);
+    line-height: 1.3;
+    max-width: 40ch;
   }
   @media (min-width: 768px) {
     .ks-summary {
-      font-size: var(--text-64);
-      letter-spacing: -0.04em;
-      line-height: 1;
+      font-size: var(--text-28);
+      letter-spacing: -0.02em;
+      line-height: 1.2;
     }
   }
   .ks-body {
     max-width: 66ch;
-  }
-
-  /* Kerb Block display text. Lowercase input maps to capitals in the font. */
-  .ks-block {
-    font-family: var(--font-block);
-    font-weight: 400;
-    text-transform: uppercase;
-    line-height: 1;
-    letter-spacing: 0.02em;
   }
   /* Vertical Japanese columns, as on the poster. */
   .ks-hero-title {
@@ -276,12 +275,11 @@
     text-orientation: upright;
   }
 
-  /* Ahoy label block: a small black block with white bold text. */
+  /* Ahoy label block: a small solid block with Kerb Block text. */
   .ks-label {
     display: inline-block;
     background: var(--ks-black);
     color: var(--ks-white);
-    font-weight: 700;
     font-size: 14px;
     line-height: 20px;
     padding: 4px 8px;
@@ -294,19 +292,24 @@
     color: var(--ks-black);
   }
 
-  /* Solid button. Hover inverts instantly. Press moves 2px. */
+  /* Solid button in Kerb Block. Hover inverts instantly. Press moves 2px. */
   .ks-button {
     display: inline-flex;
     align-items: center;
-    justify-content: flex-start;
+    justify-content: center;
     gap: 8px;
-    font-weight: 700;
     font-size: 20px;
     line-height: 24px;
-    letter-spacing: -0.02em;
-    padding: 16px 24px;
+    padding: 14px 24px;
     border: 3px solid currentColor;
-    text-align: left;
+    text-align: center;
+    min-height: 56px;
+  }
+  .ks-button--small {
+    font-size: 14px;
+    line-height: 16px;
+    padding: 8px 12px;
+    min-height: 40px;
   }
   .ks-button:active {
     transform: translate(2px, 2px);
@@ -347,15 +350,63 @@
     background: var(--ks-white);
     color: var(--ks-black);
   }
-
-  /* Text links: a solid underline. Thicker on hover, instantly. */
-  .ks-link {
-    text-decoration: underline;
-    text-decoration-thickness: 2px;
-    text-underline-offset: 3px;
+  .ks-button--outline-black {
+    background: transparent;
+    color: var(--ks-black);
+    border-color: var(--ks-black);
   }
-  .ks-link:hover {
-    text-decoration-thickness: 4px;
+  .ks-button--outline-black:hover {
+    background: var(--ks-black);
+    color: var(--ks-white);
+  }
+
+  /* A cell link: the whole cell is the link. Hover inverts instantly. */
+  .ks-cell {
+    display: block;
+    background: var(--ks-paper);
+    color: var(--ks-black);
+  }
+  .ks-cell:hover {
+    background: var(--ks-black);
+    color: var(--ks-white);
+  }
+  .field-black .ks-cell {
+    background: var(--ks-black);
+    color: var(--ks-white);
+  }
+  .field-black .ks-cell:hover {
+    background: var(--ks-white);
+    color: var(--ks-black);
+  }
+
+  /* The numbered rail on wide screens. A thin line with one tick per
+     section. The current section is a solid green block. */
+  .ks-rail {
+    position: fixed;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 40;
+    border-left: 2px solid var(--ks-black);
+  }
+  .ks-rail a {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    /* Small type, but a 24 px touch target (WCAG 2.5.8). */
+    min-width: 24px;
+    min-height: 24px;
+    padding: 0 6px;
+    font-size: 10px;
+    line-height: 12px;
+  }
+  .ks-rail a:hover {
+    background: var(--ks-black);
+    color: var(--ks-white);
+  }
+  .ks-rail a[aria-current='location'] {
+    background: var(--ks-green);
+    color: var(--ks-white);
   }
 
   /* Swiss rules: 3px above tables and sections, 1px between rows. */
@@ -375,14 +426,12 @@
     line-height: 20px;
   }
 
-  /* Section tab: a green bar with a static chevron end, white Helvetica Bold. */
+  /* Section tab: a green bar with a static chevron end, white Kerb Block. */
   .ks-tab {
     display: inline-block;
     background: var(--ks-green);
     color: var(--ks-white);
-    font-weight: 700;
     font-size: var(--text-40);
-    letter-spacing: -0.02em;
     line-height: 1;
     padding: 16px 56px 16px 24px;
     clip-path: polygon(0 0, calc(100% - 32px) 0, 100% 50%, calc(100% - 32px) 100%, 0 100%);
@@ -431,5 +480,24 @@
     clip: rect(0, 0, 0, 0);
     white-space: nowrap;
     border: 0;
+  }
+}
+
+/* The hero LED dot matrix: a slow drift, transform only. It stops for reduced motion. */
+@keyframes ks-led-drift {
+  from {
+    transform: translate3d(-3%, 0, 0) scale(1.08);
+  }
+  to {
+    transform: translate3d(3%, -2%, 0) scale(1.14);
+  }
+}
+.ks-led-drift {
+  animation: ks-led-drift 14s ease-in-out infinite alternate;
+  will-change: transform;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ks-led-drift {
+    animation: none;
   }
 }

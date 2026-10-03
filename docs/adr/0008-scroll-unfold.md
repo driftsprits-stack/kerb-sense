@@ -1,6 +1,6 @@
 # ADR 0008: The scroll unfold with GSAP ScrollTrigger
 
-Date: 2026-10-03. Status: accepted.
+Date: 2026-10-03. Status: superseded by ADR 0009.
 
 ## Context
 

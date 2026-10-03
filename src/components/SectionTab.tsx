@@ -1,6 +1,6 @@
 import { longest } from '../copy';
 
-// Section tab: a green bar with a static chevron, white Helvetica Bold.
+// Section tab: a green bar with a static chevron, Kerb Block in white.
 // The title comes from the copy pool. The tab reserves the width of the
 // longest entry, so a different title never shifts the layout.
 interface SectionTabProps {
