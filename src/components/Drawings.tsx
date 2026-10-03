@@ -4,7 +4,7 @@
 import { cataloguePartsOf } from '../lib/parts';
 import { barPercent } from '../lib/budget';
 
-const partImages = import.meta.glob<string>('../assets/{parts,renders}/*.svg', {
+const partImages = import.meta.glob<string>('../assets/{parts,renders,v2/parts}/*.svg', {
   eager: true,
   import: 'default',
   query: '?url',
@@ -242,31 +242,43 @@ export function StepIcon({ id }: { id: string }) {
 
 /** The three safety pictograms. */
 export function SafetyIcon({ id }: { id: string }) {
-  const common = { fill: 'none', stroke: '#000000', strokeWidth: 8, strokeLinecap: 'square' as const };
+  // Red marks only "not allowed" (the one use of red on the site).
+  const RED = '#AC1E39';
+  const line = { fill: '#FFFFFF', stroke: '#000000', strokeWidth: 8, strokeLinejoin: 'miter' as const };
+  const strike = <path d="M28 172 L172 28" stroke={RED} strokeWidth={14} />;
   let shape;
   if (id === 'accounts') {
+    // A person with a red strike: no accounts, no profiles.
     shape = (
       <g>
-        <rect x={70} y={40} width={60} height={60} {...common} />
-        <path d="M40 160 V130 H160 V160" {...common} />
-        <path d="M40 40 L160 160" stroke="#178048" strokeWidth={8} />
+        <rect x={78} y={38} width={44} height={44} fill="#000000" />
+        <path d="M50 160 V112 H150 V160" {...line} />
+        {strike}
       </g>
     );
   } else if (id === 'storage') {
+    // A floppy disk (the "save" symbol) with a red strike: nothing is saved.
     shape = (
       <g>
-        <rect x={40} y={50} width={120} height={100} {...common} />
-        <path d="M40 90 H160" {...common} />
-        <path d="M40 50 L160 150" stroke="#178048" strokeWidth={8} />
+        <path d="M40 30 H140 L170 60 V170 H40 Z" {...line} />
+        <rect x={68} y={30} width={64} height={42} fill="#000000" />
+        <rect x={110} y={38} width={12} height={26} fill="#FFFFFF" />
+        <rect x={64} y={108} width={84} height={52} {...line} />
+        <path d="M78 126 H134 M78 142 H134" stroke="#000000" strokeWidth={6} />
+        {strike}
       </g>
     );
   } else {
+    // A student standing still at the booth, on the school floor.
     shape = (
       <g>
-        <rect x={60} y={40} width={80} height={110} {...common} />
-        <rect x={80} y={60} width={40} height={40} fill="#000000" />
-        <rect x={0} y={160} width={200} height={12} fill="#000000" />
-        <rect x={92} y={110} width={16} height={16} fill="#178048" />
+        <rect x={20} y={156} width={164} height={8} fill="#000000" />
+        <rect x={96} y={48} width={70} height={108} {...line} />
+        <rect x={106} y={62} width={50} height={38} fill="#000000" />
+        <rect x={110} y={116} width={14} height={10} fill="#178048" />
+        <rect x={132} y={116} width={14} height={10} fill="#178048" />
+        <rect x={38} y={70} width={28} height={28} fill="#000000" />
+        <rect x={44} y={102} width={16} height={54} fill="#000000" />
       </g>
     );
   }

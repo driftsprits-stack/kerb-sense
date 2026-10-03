@@ -20,9 +20,21 @@ export default function Hero() {
       aria-labelledby="hero-title"
       data-testid="hero"
     >
-      <div className="ks-container grid grid-cols-1 gap-4 py-5 md:min-h-[calc(100svh-67px)] md:grid-cols-12 md:items-center md:py-8">
+      {/* The LED dot matrix spans the whole black field and drifts slowly. */}
+      <img
+        src={ledWave}
+        alt=""
+        width={2400}
+        height={1400}
+        aria-hidden="true"
+        data-hero="led"
+        data-texture
+        className="ks-led-drift pointer-events-none absolute inset-0 h-full w-full object-cover"
+        decoding="async"
+      />
+      <div className="ks-container relative grid grid-cols-1 gap-4 py-5 md:min-h-[calc(100svh-67px)] md:grid-cols-12 md:items-center md:py-8">
         {/* The words, on solid black. */}
-        <div className="relative md:col-span-6 md:pr-8" data-hero="copy">
+        <div className="relative self-center bg-black p-4 md:col-span-6 md:p-6" data-hero="copy">
           <div className="grid">
             <span
               className="ks-display invisible col-start-1 row-start-1 text-28 md:text-48 xl:text-64"
@@ -56,7 +68,6 @@ export default function Hero() {
               {HERO.booth}
             </a>
           </div>
-          <p className="mt-3 text-12 text-white md:text-14">{SITE.safeLine}</p>
           <p
             className="ks-block ks-vertical absolute right-0 top-0 hidden text-green md:block"
             lang="ja"
@@ -69,17 +80,6 @@ export default function Hero() {
 
         {/* The booth, over the LED texture. No text here. */}
         <div className="relative md:col-span-6" data-testid="hero-booth">
-          <img
-            src={ledWave}
-            alt=""
-            width={2400}
-            height={1400}
-            aria-hidden="true"
-            data-hero="led"
-            data-texture
-            className="pointer-events-none absolute inset-x-0 bottom-0 h-full w-full object-cover"
-            decoding="async"
-          />
           <img
             src={BOOTH_HERO}
             alt={HERO.boothAlt}

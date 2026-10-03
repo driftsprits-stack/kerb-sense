@@ -19,53 +19,48 @@ export interface PartInfo {
 
 export const PARTS: readonly PartInfo[] = [
   {
+    id: 'screen',
+    nodes: ['screen_glass'],
+    name: 'SCREEN GLASS',
+    purpose: 'COVERS THE MONITOR',
+    image: 'v2/parts/01-screen-glass.svg',
+  },
+  {
     id: 'joystick',
     nodes: ['joystick', 'joystick_button', 'joystick_shaft', 'joystick_dust_washer'],
     name: 'JOYSTICK',
     purpose: 'MOVES THE PLAYER',
-    image: 'parts/part-joystick.svg',
+    image: 'v2/parts/02-joystick.svg',
   },
   {
     id: 'buttons',
     nodes: ['button_up', 'button_down', 'button_left', 'button_right'],
     name: 'MOVEMENT BUTTONS X4',
     purpose: 'UP, DOWN, LEFT, RIGHT',
-    image: 'parts/part-button-up.svg',
-  },
-  {
-    id: 'screen',
-    nodes: ['screen_glass'],
-    name: 'SCREEN GLASS',
-    purpose: 'COVERS THE MONITOR',
-    image: 'parts/part-screen-glass.svg',
-  },
-  {
-    id: 'panel',
-    nodes: ['interior'],
-    name: 'REAR PANEL',
-    purpose: 'ACCESS AND VENTILATION',
-    image: 'renders/booth-light-back.svg',
+    image: 'v2/parts/03-movement-buttons.svg',
   },
   {
     id: 'hinges',
     nodes: ['hinge_left', 'hinge_right'],
     name: 'HINGES',
     purpose: 'LET THE PANEL OPEN',
-    image: 'parts/part-hinge.svg',
+    image: 'v2/parts/04-hinges.svg',
   },
   {
     id: 'latches',
-    nodes: ['latch_left', 'latch_right', 'latch_pin_left', 'latch_pin_right', 'hook_left', 'hook_right'],
+    nodes: ['latch_left', 'latch_right', 'latch_pin_left', 'latch_pin_right'],
     name: 'LATCHES',
     purpose: 'HOLD THE PANEL SHUT',
-    image: 'parts/part-latch.svg',
+    image: 'v2/parts/05-latches.svg',
   },
   {
-    id: 'cabinet',
-    nodes: ['cabinet'],
-    name: 'CABINET',
-    purpose: '12 MM MDF, CUT TO SIZE',
+    id: 'hooks',
+    nodes: ['hook_left', 'hook_right'],
+    name: 'HOOKS',
+    purpose: 'CATCH THE LATCHES',
+    image: 'v2/parts/06-hooks.svg',
   },
+  { id: 'cabinet', nodes: ['cabinet', 'interior'], name: 'CABINET', purpose: '12 MM MDF, CUT TO SIZE' },
 ];
 
 const partById = new Map(PARTS.map((p) => [p.id, p]));
@@ -101,4 +96,4 @@ export function partNumber(id: string): number | undefined {
 }
 
 /** The order the scroll scene highlights parts in. */
-export const SCENE_PARTS = ['joystick', 'buttons', 'screen', 'panel', 'latches'] as const;
+export const SCENE_PARTS = ['screen', 'joystick', 'buttons', 'hinges', 'latches'] as const;

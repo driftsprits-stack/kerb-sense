@@ -1,98 +1,109 @@
-import { Suspense, lazy, useCallback, useRef, useState } from 'react';
+import { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { gsap } from 'gsap';
 import ErrorBoundary from '../components/ErrorBoundary';
 import Section from '../components/Section';
 import LabelBlock, { StatusLabel } from '../components/LabelBlock';
 import PixelSwap from '../components/PixelSwap';
 import { DimensionDrawing, ExplodedDrawing, partImage } from '../components/Drawings';
-import { useUnfold } from '../components/unfold';
 import { BOOTH } from '../content';
 import { SLOT } from '../copy';
 import { BOOTH_ASSEMBLED, BOOTH_DIMENSIONS, BOOTH_EXPLODED } from '../lib/artwork';
-import { SCENE_PARTS, cataloguePartsOf, partById_ } from '../lib/parts';
-import { THREE_QUARTER, VIEW_LABELS, VIEW_ORDER, type ViewName } from '../lib/views';
+import { cataloguePartsOf, partById_ } from '../lib/parts';
+import { THREE_QUARTER, VIEW_LABELS, VIEW_ORDER, isViewName, type ViewName } from '../lib/views';
 import BoothFallback from '../booth/BoothFallback';
 import { useBoothLoad } from '../booth/useBoothLoad';
-import type { CameraReport, SceneDrive } from '../booth/BoothViewer';
+import type { CameraReport } from '../booth/BoothViewer';
 
 const BoothViewer = lazy(() => import('../booth/BoothViewer'));
 
-// The booth: the 3D viewer with the scroll scene, the view buttons, the
-// ASSEMBLED / EXPLODED drawing, the six-part catalogue, the dimension
-// drawing and one row of specs.
+// The booth: a sticky 3D viewer beside three short explanations, the view
+// buttons, the ASSEMBLED / EXPLODED drawing, the six-part catalogue with a
+// detail panel, the dimension drawing and one row of specs.
+//
+// One source of truth for the highlighted part: the visitor's own choice
+// (manual) wins. Scrolling to a new explanation hands control back to the
+// tour, so the two never fight.
+const TOUR_MEDIA = '(min-width: 1024px) and (min-height: 700px)';
+
 export default function Booth() {
   const stageRef = useRef<HTMLDivElement>(null);
-  const sceneRef = useRef<HTMLDivElement>(null);
-  const drive = useRef<SceneDrive>({ active: false, azimuth: THREE_QUARTER, part: null });
-  const takenOver = useRef(false);
+  const detailRef = useRef<HTMLDivElement>(null);
   const { mode, message, reduced } = useBoothLoad(stageRef);
   const [view, setView] = useState<ViewName>('front');
   const [pendingView, setPendingView] = useState<ViewName | null>(null);
-  const [selected, setSelected] = useState<string | null>(null);
+  const [manual, setManual] = useState<string | null>(null);
+  const [manualOn, setManualOn] = useState(false);
+  const [tour, setTour] = useState(0);
+  const tourRef = useRef(0);
   const [hovered, setHovered] = useState<string | null>(null);
-  const [sceneDone, setSceneDone] = useState(false);
   const [drawing, setDrawing] = useState<'a' | 'b'>('a');
   const [camera, setCamera] = useState<CameraReport>({ azimuth: THREE_QUARTER, polar: Math.PI / 2 });
+  const tourStep = BOOTH.tour[tour] ?? BOOTH.tour[0];
+  const selected = manualOn ? manual : tourStep.id;
 
-  // The scroll scene: pin the booth, turn it from the front left to the
-  // side, then slide each key part's label in beside it. A press on a view
-  // button takes over: the scene stops driving until the visitor scrolls
-  // back above it.
-  useUnfold(({ gsap, phone }) => {
-    const scene = sceneRef.current;
-    if (!scene) return;
-    const labels = scene.querySelectorAll('[data-scene-label]');
-    const finish = () => {
-      drive.current.active = false;
-      setSceneDone(true);
-      setView('side');
-      setPendingView('side');
+  // The tour: the explanation nearest the middle of the screen is current.
+  // Only on wide, tall screens; elsewhere the explanations are a plain list.
+  useEffect(() => {
+    const mq = window.matchMedia(TOUR_MEDIA);
+    let io: IntersectionObserver | null = null;
+    const start = () => {
+      io?.disconnect();
+      io = null;
+      if (!mq.matches) return;
+      io = new IntersectionObserver(
+        (entries) => {
+          const hit = entries.find((e) => e.isIntersecting);
+          if (!hit) return;
+          const i = Number((hit.target as HTMLElement).dataset.tour);
+          if (i === tourRef.current) return;
+          // A new explanation hands control back to the tour and turns the booth.
+          tourRef.current = i;
+          setTour(i);
+          setManualOn(false);
+          const v = BOOTH.tour[i]?.view;
+          if (v && isViewName(v)) {
+            setView(v);
+            setPendingView(v);
+          }
+        },
+        { rootMargin: '-45% 0px -45% 0px' },
+      );
+      document.querySelectorAll('[data-tour]').forEach((el) => io?.observe(el));
     };
-    const tl = gsap.timeline({
-      scrollTrigger: {
-        trigger: scene,
-        start: 'top 72px',
-        end: phone ? '+=90%' : '+=120%',
-        pin: true,
-        scrub: true,
-        onLeave: finish,
-        onLeaveBack: () => {
-          takenOver.current = false;
-          drive.current.active = false;
-        },
-        onEnterBack: () => {
-          if (!takenOver.current) drive.current.active = true;
-        },
-        onUpdate: (self) => {
-          if (takenOver.current) return;
-          const p = self.progress;
-          const d = drive.current;
-          d.active = p < 0.999;
-          const turn = Math.min(p, 0.5) / 0.5;
-          d.azimuth = THREE_QUARTER + turn * (Math.PI / 2 - THREE_QUARTER);
-          const stage =
-            p < 0.5
-              ? -1
-              : Math.min(SCENE_PARTS.length - 1, Math.floor(((p - 0.5) / 0.5) * SCENE_PARTS.length));
-          d.part = stage < 0 ? null : (SCENE_PARTS[stage] ?? null);
-          if (p >= 0.999) finish();
-        },
-      },
-    });
-    tl.from(labels, { xPercent: 120, ease: 'none', stagger: { each: 0.1 }, duration: 0.5 }, 0.5);
-  });
+    start();
+    mq.addEventListener('change', start);
+    return () => {
+      mq.removeEventListener('change', start);
+      io?.disconnect();
+    };
+  }, []);
 
   const chooseView = useCallback((name: ViewName) => {
-    takenOver.current = true;
-    drive.current.active = false;
+    setManualOn(true);
     setView(name);
     setPendingView(name);
   }, []);
   const onViewReached = useCallback(() => setPendingView(null), []);
-  const onSelect = useCallback((part: string | null) => setSelected(part), []);
+  const onSelect = useCallback((part: string | null) => {
+    setManualOn(true);
+    setManual(part);
+  }, []);
+
+  // The detail panel slides in when the selected part changes. Transform only.
+  const detailPart = manualOn ? partById_(manual ?? '') : undefined;
+  useLayoutEffect(() => {
+    const el = detailRef.current;
+    if (!el || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const tween = gsap.fromTo(el, { x: 24 }, { x: 0, duration: 0.25, ease: 'power2.out', force3D: true });
+    return () => {
+      tween.kill();
+    };
+  }, [detailPart?.id]);
 
   const current = partById_(hovered ?? selected ?? '');
   const fallback = <BoothFallback view={view} message={message} selected={selected} />;
   const parts = cataloguePartsOf();
+  const detail = parts.find((p) => p.id === detailPart?.id);
 
   return (
     <Section
@@ -101,55 +112,10 @@ export default function Booth() {
       body={BOOTH.body}
       status={<StatusLabel>{BOOTH.statusLabel}</StatusLabel>}
     >
-      {/* The scroll scene and the viewer. */}
-      <div ref={sceneRef} className="bg-paper" data-testid="booth-scene">
-        <div className="grid gap-2 md:grid-cols-12 md:gap-4">
-          <div
-            ref={stageRef}
-            className="relative aspect-[4/3] w-full border-[3px] border-black bg-paper md:col-span-8 md:aspect-[16/10]"
-            data-testid="booth-stage"
-            data-azimuth={camera.azimuth}
-            data-polar={camera.polar}
-          >
-            {mode === 'ready' ? (
-              <ErrorBoundary
-                name="booth viewer"
-                fallback={<BoothFallback view={view} message={BOOTH.error} selected={selected} />}
-              >
-                <Suspense
-                  fallback={<BoothFallback view={view} message={BOOTH.loading} selected={selected} />}
-                >
-                  <BoothViewer
-                    view={pendingView}
-                    onViewReached={onViewReached}
-                    selected={selected}
-                    onSelect={onSelect}
-                    onHover={setHovered}
-                    reduced={reduced}
-                    interactive
-                    drive={drive}
-                    onCamera={setCamera}
-                    canvasLabel={BOOTH.canvasLabel}
-                  />
-                </Suspense>
-              </ErrorBoundary>
-            ) : (
-              fallback
-            )}
-            {current && (
-              <p
-                className="absolute bottom-2 left-2 flex flex-wrap items-center gap-2"
-                aria-live="polite"
-                data-testid="part-readout"
-              >
-                <LabelBlock colour="green" className="text-16">
-                  {current.name}
-                </LabelBlock>
-                <LabelBlock className="text-14">{current.purpose}</LabelBlock>
-              </p>
-            )}
-          </div>
-          <div className="flex flex-col gap-2 md:col-span-4">
+      {/* The tour: the booth stays in view while three short explanations scroll past. */}
+      <div className="grid gap-4 lg:grid-cols-12" data-testid="booth-scene">
+        <div className="lg:col-span-7">
+          <div className="flex flex-col gap-2 [@media(min-width:1024px)_and_(min-height:700px)]:sticky [@media(min-width:1024px)_and_(min-height:700px)]:top-[88px]">
             <div className="flex flex-wrap gap-1" role="group" aria-label="Views" data-testid="view-group">
               {VIEW_ORDER.map((name) => {
                 const on = view === name;
@@ -167,32 +133,69 @@ export default function Booth() {
                 );
               })}
             </div>
-            {/* The scene labels. They slide in beside the booth during the scene.
-                Without motion they are simply listed here. */}
-            <ol
-              className="ks-block flex flex-col gap-1 overflow-clip"
-              aria-label="Key parts"
-              data-testid="scene-labels"
+            <div
+              ref={stageRef}
+              className="relative aspect-[4/3] w-full border-[3px] border-black bg-paper"
+              data-testid="booth-stage"
+              data-azimuth={camera.azimuth}
+              data-polar={camera.polar}
             >
-              {SCENE_PARTS.map((id) => {
-                const part = parts.find((p) => p.id === id);
-                if (!part) return null;
-                return (
-                  <li
-                    key={id}
-                    data-scene-label={id}
-                    className="flex items-baseline gap-2 border-t border-black pt-1"
+              {mode === 'ready' ? (
+                <ErrorBoundary
+                  name="booth viewer"
+                  fallback={<BoothFallback view={view} message={BOOTH.error} selected={selected} />}
+                >
+                  <Suspense
+                    fallback={<BoothFallback view={view} message={BOOTH.loading} selected={selected} />}
                   >
-                    <LabelBlock colour={sceneDone || selected === id ? 'green' : 'black'}>
-                      {part.number}
-                    </LabelBlock>
-                    <span className="text-14">{part.name}</span>
-                  </li>
-                );
-              })}
-            </ol>
+                    <BoothViewer
+                      view={pendingView}
+                      onViewReached={onViewReached}
+                      selected={selected}
+                      onSelect={onSelect}
+                      onHover={setHovered}
+                      reduced={reduced}
+                      interactive
+                      onCamera={setCamera}
+                      canvasLabel={BOOTH.canvasLabel}
+                    />
+                  </Suspense>
+                </ErrorBoundary>
+              ) : (
+                fallback
+              )}
+              {current && (
+                <p
+                  className="absolute bottom-2 left-2 flex flex-wrap items-center gap-2"
+                  aria-live="polite"
+                  data-testid="part-readout"
+                >
+                  <LabelBlock colour="green" className="text-16">
+                    {current.name}
+                  </LabelBlock>
+                  <LabelBlock className="text-14">{current.purpose}</LabelBlock>
+                </p>
+              )}
+            </div>
           </div>
         </div>
+        <ol className="lg:col-span-5" aria-label="The booth in three parts" data-testid="booth-tour">
+          {BOOTH.tour.map((t, i) => {
+            const on = !manualOn && tour === i;
+            return (
+              <li
+                key={t.id}
+                data-tour={i}
+                className="flex flex-col justify-center border-t-[3px] border-black py-4 [@media(min-width:1024px)_and_(min-height:700px)]:min-h-[38vh]"
+                aria-current={on ? 'step' : undefined}
+              >
+                <LabelBlock colour={on ? 'green' : 'black'}>{String(i + 1)}</LabelBlock>
+                <p className="ks-block mt-2 text-28 md:text-40">{t.label}</p>
+                <p className="mt-1 max-w-[36ch] text-16 md:text-20">{t.line}</p>
+              </li>
+            );
+          })}
+        </ol>
       </div>
 
       {/* ASSEMBLED / EXPLODED: one button, one pixel swap. */}
@@ -243,56 +246,85 @@ export default function Booth() {
         </div>
       </div>
 
-      {/* The parts catalogue: six equal cells. Selecting a cell highlights the part on the model. */}
-      <ul
-        className="mt-8 grid grid-cols-2 border-l border-t border-black md:grid-cols-3"
-        data-testid="parts-catalogue"
-        aria-label={BOOTH.catalogueLabel}
-      >
-        {parts.map((part) => {
-          const on = selected === part.id;
-          return (
-            <li key={part.id} className="relative border-b border-r border-black bg-white">
-              <button
-                type="button"
-                className={`block w-full p-3 text-left hover:bg-black hover:text-white ${on ? 'outline outline-[2px] -outline-offset-[2px] outline-green' : ''}`}
-                aria-pressed={on}
-                onClick={() => setSelected(on ? null : part.id)}
-                onMouseEnter={() => setHovered(part.id)}
-                onMouseLeave={() => setHovered(null)}
-                onFocus={() => setHovered(part.id)}
-                onBlur={() => setHovered(null)}
-                data-testid={`part-${part.id}`}
-              >
-                <span className="flex items-start justify-between">
-                  <LabelBlock colour={on ? 'green' : 'black'}>{part.number}</LabelBlock>
-                </span>
+      {/* The parts catalogue and its detail panel. Selecting a cell highlights the part on the model
+          and opens its detail beside the grid (below it on phones). */}
+      <div className="mt-8 grid gap-4 lg:grid-cols-12 lg:items-start">
+        <ul
+          className="grid grid-cols-2 border-l border-t border-black md:grid-cols-3 lg:col-span-8"
+          data-testid="parts-catalogue"
+          aria-label={BOOTH.catalogueLabel}
+        >
+          {parts.map((part) => {
+            const on = manualOn && manual === part.id;
+            return (
+              <li key={part.id} className="relative border-b border-r border-black bg-white">
+                <button
+                  type="button"
+                  className={`block w-full p-3 text-left hover:outline hover:outline-[3px] hover:-outline-offset-[3px] hover:outline-black ${on ? 'outline outline-[4px] -outline-offset-[4px] outline-green' : ''}`}
+                  aria-pressed={on}
+                  onClick={() => onSelect(on ? null : part.id)}
+                  onMouseEnter={() => setHovered(part.id)}
+                  onMouseLeave={() => setHovered(null)}
+                  onFocus={() => setHovered(part.id)}
+                  onBlur={() => setHovered(null)}
+                  data-testid={`part-${part.id}`}
+                >
+                  <span className="flex items-start justify-between">
+                    <LabelBlock colour={on ? 'green' : 'black'}>{part.number}</LabelBlock>
+                  </span>
+                  <img
+                    src={partImage(part.image)}
+                    alt=""
+                    width={800}
+                    height={800}
+                    loading="lazy"
+                    decoding="async"
+                    className="mx-auto mt-2 aspect-square w-3/4 object-contain"
+                  />
+                  <span className="ks-block mt-2 block text-16">{part.name}</span>
+                  <span className="ks-block mt-1 block text-12">{part.purpose}</span>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+        <div
+          className="border-[3px] border-black bg-white p-4 lg:sticky lg:top-[88px] lg:col-span-4"
+          aria-live="polite"
+          data-testid="part-detail"
+        >
+          <div ref={detailRef}>
+            {detail ? (
+              <>
+                <LabelBlock colour="green">{detail.number}</LabelBlock>
                 <img
-                  src={partImage(part.image)}
+                  src={partImage(detail.image)}
                   alt=""
                   width={800}
                   height={800}
-                  loading="lazy"
-                  decoding="async"
-                  className="mx-auto mt-2 aspect-square w-3/4 object-contain"
+                  className="mx-auto my-4 aspect-square w-2/3 object-contain"
                 />
-                <span className="ks-block mt-2 block text-16">{part.name}</span>
-                <span className="ks-block mt-1 block text-12">{part.purpose}</span>
-              </button>
-            </li>
-          );
-        })}
-      </ul>
+                <p className="ks-block text-28">{detail.name}</p>
+                <p className="ks-block mt-1 text-16">{detail.purpose}</p>
+              </>
+            ) : (
+              <p className="ks-block flex aspect-square items-center justify-center text-20">
+                {BOOTH.detailEmpty}
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
 
       {/* The dimensions and one row of specs. */}
-      <div className="mt-8 grid gap-4 md:grid-cols-12">
+      <div className="mt-8 grid gap-4 md:grid-cols-12 md:items-start">
         <div className="border-[3px] border-black bg-white md:col-span-7">
           {BOOTH_DIMENSIONS ? (
             <img
               src={BOOTH_DIMENSIONS}
               alt={BOOTH.dimensionsAlt}
-              width={640}
-              height={420}
+              width={3040}
+              height={1760}
               loading="lazy"
               decoding="async"
               className="w-full"

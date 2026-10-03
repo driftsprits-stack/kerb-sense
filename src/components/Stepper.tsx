@@ -3,9 +3,9 @@ import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { gsap } from 'gsap';
 
 // The crossing stepper (the React Bits Stepper pattern on Radix Tabs and
-// GSAP). Square numbered markers, NEXT and BACK, one step panel with a
-// pictogram, and the full list below so every step is readable without
-// pressing anything. The panel slides in with a transform only.
+// GSAP). One step panel with a pictogram, and a numbered dial below it.
+// The dial is a Radix tab list: arrow keys move between steps. The panel
+// slides in with a transform only.
 export interface Step {
   id: string;
   label: string;
@@ -15,13 +15,10 @@ export interface Step {
 interface StepperProps {
   steps: readonly Step[];
   icon: (id: string, index: number) => ReactNode;
-  next: string;
-  back: string;
   stepLabel: string;
-  listLabel: string;
 }
 
-export default function Stepper({ steps, icon, next, back, stepLabel, listLabel }: StepperProps) {
+export default function Stepper({ steps, icon, stepLabel }: StepperProps) {
   const [index, setIndex] = useState(0);
   const panelRef = useRef<HTMLDivElement>(null);
   const direction = useRef(1);
@@ -54,19 +51,7 @@ export default function Stepper({ steps, icon, next, back, stepLabel, listLabel 
       className="border-t-[3px] border-black"
       data-testid="stepper"
     >
-      <Tabs.List className="flex" aria-label={stepLabel}>
-        {steps.map((s, i) => (
-          <Tabs.Trigger
-            key={s.id}
-            value={s.id}
-            className="ks-block flex h-6 flex-1 items-center justify-center border-r border-black text-14 last:border-r-0 hover:bg-black hover:text-white data-[state=active]:bg-green data-[state=active]:text-white"
-            aria-label={`${stepLabel} ${i + 1}, ${s.label}`}
-          >
-            {i + 1}
-          </Tabs.Trigger>
-        ))}
-      </Tabs.List>
-      <div className="overflow-clip border-t border-black">
+      <div className="overflow-clip">
         <div
           ref={panelRef}
           className="grid grid-cols-[96px_minmax(0,1fr)] items-center gap-3 py-3 md:grid-cols-[160px_minmax(0,1fr)]"
@@ -83,38 +68,18 @@ export default function Stepper({ steps, icon, next, back, stepLabel, listLabel 
           </div>
         </div>
       </div>
-      <div className="flex gap-2 border-t border-black pt-3">
-        <button
-          type="button"
-          className="ks-button ks-button--outline-black ks-button--small"
-          onClick={() => go(index - 1)}
-          disabled={index === 0}
-          data-testid="step-back"
-        >
-          {back}
-        </button>
-        <button
-          type="button"
-          className="ks-button ks-button--black ks-button--small"
-          onClick={() => go(index + 1)}
-          disabled={index === steps.length - 1}
-          data-testid="step-next"
-        >
-          {next}
-        </button>
-      </div>
-      <ol
-        className="ks-block mt-4 grid grid-cols-2 gap-x-3 border-t border-black pt-3 text-14 md:grid-cols-3"
-        aria-label={listLabel}
-        data-testid="step-list"
-      >
+      <Tabs.List className="flex border-t border-black" aria-label={stepLabel}>
         {steps.map((s, i) => (
-          <li key={s.id} className="py-1">
-            <span className="mr-2">{i + 1}</span>
-            {s.label}
-          </li>
+          <Tabs.Trigger
+            key={s.id}
+            value={s.id}
+            className="ks-block flex h-6 flex-1 items-center justify-center border-r border-black text-14 last:border-r-0 hover:bg-black hover:text-white data-[state=active]:bg-green data-[state=active]:text-white"
+            aria-label={`${stepLabel} ${i + 1}, ${s.label}`}
+          >
+            {i + 1}
+          </Tabs.Trigger>
         ))}
-      </ol>
+      </Tabs.List>
     </Tabs.Root>
   );
 }

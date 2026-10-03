@@ -28,10 +28,10 @@ export function useCurrentSection(): SectionId | null {
 
 // The numbered rail on wide screens (the React Bits Line Sidebar layout,
 // without its pointer motion). Plain hash links, aria-current on the
-// section in view. Hidden below 1024 px, where the menu takes over.
+// section in view. Hidden below 1280 px, where the menu takes over.
 export default function Rail({ current }: { current: SectionId | null }) {
   return (
-    <nav className="ks-rail ks-block hidden lg:block" aria-label="Sections" data-testid="rail">
+    <nav className="ks-rail ks-block hidden xl:block" aria-label="Sections" data-testid="rail">
       <ol>
         {SECTIONS.map((s) => (
           <li key={s.id}>

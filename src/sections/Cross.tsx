@@ -118,10 +118,7 @@ export default function Cross() {
                   <StepIcon id={id} />
                 )
               }
-              next={CROSS.next}
-              back={CROSS.back}
               stepLabel={CROSS.stepLabel}
-              listLabel={JA.howToCross.meaning}
             />
           </div>
         </div>
@@ -136,13 +133,6 @@ export default function Cross() {
           >
             <Clip />
           </ErrorBoundary>
-          <ul className="mt-3 border-t-[3px] border-black" data-testid="rules">
-            {CROSS.rules.map((rule) => (
-              <li key={rule} className="border-b border-black py-2 text-16 md:text-20">
-                {rule}
-              </li>
-            ))}
-          </ul>
           <a
             href={playUrl}
             className="ks-button ks-button--green mt-4 w-full md:w-auto md:min-w-[200px]"

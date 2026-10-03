@@ -2,7 +2,7 @@
 // It fails the build on:
 //   - gradients, shadows, filters, blur, opacity below 1 or animated opacity;
 //   - a border radius other than 0;
-//   - any colour outside the seven palette colours plus the paper ground;
+//   - any colour outside black, white, green, the paper ground and the one red;
 //   - em dashes or emoji in the site's text;
 //   - placeholder words.
 // The game at dist/play/ is not audited: it is a separate, unchanged product.
@@ -13,12 +13,10 @@ const DIST = new URL('../dist/', import.meta.url).pathname;
 const PALETTE = new Set([
   '#ffffff',
   '#000000',
-  '#ac1e39',
-  '#e1b913',
   '#178048',
-  '#214ea0',
-  '#3d99c9',
   '#f2efe8',
+  // Red marks "not allowed" in the safety icons only (owner decision, October 2026).
+  '#ac1e39',
 ]);
 const problems = [];
 
@@ -89,9 +87,9 @@ for (const file of [...html, ...siteJs]) {
 
 for (const file of html) {
   const text = readFileSync(file, 'utf8');
-  // The home page leads with the name, so the browser tab reads "Kerb Sense".
+  // The home page title is only the name: "Kerb Sense" (owner decision).
   // Every other page is "Page name | Kerb Sense" (L05).
-  if (!/<title>(?:Kerb Sense\. [^<]+|[^<]+\| Kerb Sense)<\/title>/.test(text))
+  if (!/<title>(?:Kerb Sense|[^<]+\| Kerb Sense)<\/title>/.test(text))
     problems.push(`${file.replace(DIST, 'dist/')}: title format`);
   const desc = text.match(/<meta\s+name="description"\s+content="([^"]*)"/)?.[1] ?? '';
   if (!desc) problems.push(`${file.replace(DIST, 'dist/')}: no meta description`);

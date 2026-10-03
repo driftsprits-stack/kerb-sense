@@ -72,7 +72,29 @@ export const BOOTH = {
   noWebgl: 'This browser cannot show 3D. These are the flat renders',
   canvasLabel: 'A 3D model of the Kerb Sense arcade booth design. Drag to turn it.',
   catalogueLabel: 'PARTS',
-  dimensionsAlt: 'Dimension drawing of the booth: 70 cm wide, 65 cm high, 75 cm deep.',
+  dimensionsAlt: 'Dimension drawing of the booth: 70 cm wide, 65 cm deep, 75 cm tall.',
+  /** The three short explanations beside the sticky booth. Each one turns the booth and highlights one part. */
+  tour: [
+    {
+      id: 'screen',
+      view: 'front',
+      label: 'SCREEN',
+      line: 'A 24 inch monitor behind clear glass shows the game.',
+    },
+    {
+      id: 'buttons',
+      view: 'top',
+      label: 'CONTROLS',
+      line: 'Four movement buttons and a joystick. No phone needed.',
+    },
+    {
+      id: 'latches',
+      view: 'back',
+      label: 'REAR ACCESS',
+      line: 'Two hinges and two latches open the back for the computer.',
+    },
+  ],
+  detailEmpty: 'SELECT A PART',
   specs: [
     ['STATUS', 'DESIGNED'],
     ['SIZE', '70 X 65 X 75 CM'],
@@ -92,11 +114,8 @@ export const CROSS = {
     { id: 'cross', label: 'CROSS', line: 'Walk, do not run. Keep looking.' },
     { id: 'phone-after', label: 'PHONE AFTER', line: 'Read the message on the other side.' },
   ],
-  next: 'NEXT',
-  back: 'BACK',
   stepLabel: 'STEP',
   clipAria: 'Play the game. A real gameplay clip of Kerb Sense.',
-  rules: ['You only see where you look.', 'Some drivers run the red.', 'Your phone can wait.'],
   play: 'PLAY',
 } as const;
 

@@ -6,12 +6,12 @@ describe('parts', () => {
     const catalogue = cataloguePartsOf();
     expect(catalogue.map((p) => p.number)).toEqual([1, 2, 3, 4, 5, 6]);
     expect(catalogue.map((p) => p.id)).toEqual([
+      'screen',
       'joystick',
       'buttons',
-      'screen',
-      'panel',
       'hinges',
       'latches',
+      'hooks',
     ]);
     expect(PARTS.length).toBe(7);
     expect(partById_('cabinet')?.image).toBeUndefined();
@@ -26,8 +26,8 @@ describe('parts', () => {
 
   it('maps every node to a part and unknown nodes to the cabinet', () => {
     expect(partForNode('joystick_shaft').id).toBe('joystick');
-    expect(partForNode('hook_left').id).toBe('latches');
-    expect(partForNode('interior').id).toBe('panel');
+    expect(partForNode('hook_left').id).toBe('hooks');
+    expect(partForNode('interior').id).toBe('cabinet');
     expect(partForNode('something_else').id).toBe('cabinet');
     expect(partForNode('').id).toBe('cabinet');
   });
@@ -40,8 +40,9 @@ describe('parts', () => {
   });
 
   it('numbers parts the same way in the catalogue and the drawing', () => {
-    expect(partNumber('joystick')).toBe(1);
-    expect(partNumber('latches')).toBe(6);
+    expect(partNumber('screen')).toBe(1);
+    expect(partNumber('joystick')).toBe(2);
+    expect(partNumber('hooks')).toBe(6);
     expect(partNumber('cabinet')).toBeUndefined();
   });
 

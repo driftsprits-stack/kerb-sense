@@ -11,10 +11,6 @@ interface CounterProps {
   className?: string;
 }
 
-function digitsOf(value: number): number[] {
-  return [...String(value)].map((c) => Number(c));
-}
-
 export default function Counter({ value, fontSize = 96, className = '' }: CounterProps) {
   const ref = useRef<HTMLSpanElement>(null);
   const [reduced] = useState(
@@ -23,8 +19,11 @@ export default function Counter({ value, fontSize = 96, className = '' }: Counte
   // With reduced motion the final value is shown at once.
   const [started, setStarted] = useState(reduced);
   const height = fontSize;
-  const digits = digitsOf(value);
   const formatted = value.toLocaleString('en-SG');
+  // Digits roll; the thousands comma stays still.
+  const tokens = [...formatted].map((c) =>
+    /\d/.test(c) ? { digit: Number(c), sep: null } : { digit: 0, sep: c },
+  );
 
   useEffect(() => {
     const el = ref.current;
@@ -74,26 +73,32 @@ export default function Counter({ value, fontSize = 96, className = '' }: Counte
       aria-label={formatted}
       role="img"
     >
-      {digits.map((digit, i) => (
-        <span
-          key={i}
-          className="inline-flex flex-col"
-          aria-hidden="true"
-          style={{ fontSize, lineHeight: `${height}px`, fontWeight: 700, letterSpacing: '-0.04em' }}
-        >
-          <span
-            data-digit={digit}
-            className="flex flex-col"
-            style={reduced ? { transform: `translateY(${-digit * height}px)` } : undefined}
-          >
-            {Array.from({ length: 10 }, (_, n) => (
-              <span key={n} style={{ height, display: 'block' }}>
-                {n}
-              </span>
-            ))}
+      {tokens.map((token, i) =>
+        token.sep ? (
+          <span key={i} aria-hidden="true" style={{ fontSize, lineHeight: `${height}px` }}>
+            {token.sep}
           </span>
-        </span>
-      ))}
+        ) : (
+          <span
+            key={i}
+            className="inline-flex flex-col items-center"
+            aria-hidden="true"
+            style={{ fontSize, lineHeight: `${height}px`, fontWeight: 700, width: '0.78em' }}
+          >
+            <span
+              data-digit={token.digit}
+              className="flex flex-col"
+              style={reduced ? { transform: `translateY(${-token.digit * height}px)` } : undefined}
+            >
+              {Array.from({ length: 10 }, (_, n) => (
+                <span key={n} style={{ height, display: 'block' }}>
+                  {n}
+                </span>
+              ))}
+            </span>
+          </span>
+        ),
+      )}
     </span>
   );
 }

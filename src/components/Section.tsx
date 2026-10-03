@@ -27,7 +27,7 @@ export default function Section({ id, slot, body, field = 'paper', children, sta
       aria-labelledby={`${id}-title`}
       data-section={id}
     >
-      <div className={`ks-container ${tight ? 'py-8 md:py-10' : 'py-10 md:py-14'}`}>
+      <div className={`ks-container ${tight ? 'py-6 md:py-8' : 'py-8 md:py-10'}`}>
         <div className="flex flex-wrap items-center gap-3">
           <SectionTab number={meta.number} title={title} slot={slot} id={`${id}-title`} />
           {status}

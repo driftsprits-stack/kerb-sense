@@ -4,7 +4,7 @@ import { SECTIONS, type SectionId } from '../content';
 
 const base = import.meta.env.BASE_URL;
 
-// The header: the logo, the PLAY button and, below 1024 px, the MENU
+// The header: the logo, the PLAY button and, below 1280 px, the MENU
 // button. The menu is a full-screen numbered list (the React Bits
 // Staggered Menu layout on the existing Radix dialog). It opens at once:
 // no motion, no opacity.
@@ -17,7 +17,7 @@ export default function Nav({ current }: { current: SectionId | null }) {
           <Logo height={22} />
         </a>
         <p
-          className="ks-block min-w-0 flex-1 truncate text-14 lg:hidden"
+          className="ks-block min-w-0 flex-1 truncate text-14 xl:hidden"
           aria-live="polite"
           data-testid="current-section"
         >
@@ -35,7 +35,7 @@ export default function Nav({ current }: { current: SectionId | null }) {
             <Dialog.Trigger asChild>
               <button
                 type="button"
-                className="ks-button ks-button--outline-black ks-button--small lg:hidden"
+                className="ks-button ks-button--outline-black ks-button--small xl:hidden"
                 aria-label="Open the menu"
                 data-testid="menu-open"
               >
