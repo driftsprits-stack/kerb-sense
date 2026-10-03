@@ -10,7 +10,8 @@ The owner also asked for the "nothing stored" safety icon to be a floppy disk wi
 
 ## Decision
 
-- **No pins.** `src/sections/Booth.tsx` places the viewer in a sticky column beside three short tour blocks (`BOOTH.tour` in `src/content.ts`). An `IntersectionObserver` with a thin band in the middle of the viewport marks the active block, and that block sets the view (front, top, back) and highlights its part.
+- **Scroll-driven, without pins.** With motion on, the tour's scroll progress drives the booth continuously: from the three-quarter angle to the front, down to the top, round to a raised back three-quarter, then the parts move apart (offsets in `src/lib/parts.ts`, keyframes in `tourPose` in `src/lib/views.ts`). Each explanation slides in with a transform. Under reduced motion the views change in steps.
+- **No pins.** `src/sections/Booth.tsx` places the viewer in a sticky column beside three short tour blocks (`BOOTH.tour` in `src/content.ts`). A GSAP ScrollTrigger on the list (no pin, no scroll-jacking) marks the block at the middle of the viewport as active; that block sets the view button (front, top, back) and highlights its part. The page height stays the same with or without motion.
 - The tour runs only on screens at least 1024 px wide and 700 px tall. Smaller screens show the same blocks as a list, with no sticky stage.
 - **Manual control wins.** A view button or a part choice overrides the tour until the visitor scrolls to a different block. The tour list has bottom padding so the sticky stage stays fully visible at the last block.
 - **Part detail.** Selecting a part in the catalogue fills a sticky panel with its drawing, number, name and purpose. Selecting it again clears the panel. Under reduced motion the panel does not slide.

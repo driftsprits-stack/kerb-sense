@@ -194,8 +194,9 @@ function BoothModel({
   // changes the target and the loop moves toward it. When the scroll scene
   // drives the booth, its azimuth is the target.
   useFrame((state, delta) => {
-    // Fit the booth to the stage height, whatever its size.
-    const wantedZoom = state.size.height / VISIBLE_HEIGHT_M;
+    // Fit the booth to the stage height, whatever its size. Zoom out as the
+    // parts move apart, so they stay inside the frame.
+    const wantedZoom = state.size.height / (VISIBLE_HEIGHT_M * (1 + 0.6 * explodeT.current));
     if (Math.abs(state.camera.zoom - wantedZoom) > 0.5) {
       state.camera.zoom = wantedZoom;
       state.camera.updateProjectionMatrix();
