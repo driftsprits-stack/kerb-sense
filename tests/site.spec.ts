@@ -58,7 +58,7 @@ async function sceneRange(page: Page) {
 test.describe('home page', () => {
   test('loads with the title, one h1, the default headline and no horizontal scroll', async ({ page }) => {
     await page.goto(HOME);
-    await expect(page).toHaveTitle('Wait, and you get there first. | Kerb Sense');
+    await expect(page).toHaveTitle('Kerb Sense. Wait, and you get there first.');
     await expect(page.locator('h1')).toHaveCount(1);
     await expect(page.locator('h1')).toHaveText(DEFAULT_HEADLINE);
     await noHorizontalScroll(page);
@@ -339,7 +339,7 @@ test.describe('home page', () => {
         ).toBe(true);
       }
       seen.add(h1 + titles.map((t) => t[1]).join('|'));
-      await expect(page).toHaveTitle('Wait, and you get there first. | Kerb Sense');
+      await expect(page).toHaveTitle('Kerb Sense. Wait, and you get there first.');
     }
     expect(seen.size).toBeGreaterThan(1);
     expect(
