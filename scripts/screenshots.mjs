@@ -106,6 +106,9 @@ for (const [device, width, height] of WIDTHS) {
     await go(`[data-tour="${i}"]`, height * 0.45);
     await shot(`booth-tour-${i + 1}`);
   }
+  // The end of the tour: the back view with the parts moved apart.
+  await go('[data-testid="booth-tour"] [data-tour="2"]', height * 0.5 - 300);
+  await shot('booth-tour-exploded');
   await go('[data-testid="parts-catalogue"]', 100);
   await scene.click('[data-testid="part-joystick"]').catch(() => null);
   await scene.waitForTimeout(800);

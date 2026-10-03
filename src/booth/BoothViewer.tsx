@@ -1,9 +1,9 @@
 import { Canvas, useFrame, type ThreeEvent } from '@react-three/fiber';
 import { Html, OrbitControls, Outlines, useGLTF } from '@react-three/drei';
 import { useEffect, useMemo, useRef, useState, type JSX, type RefObject } from 'react';
-import { Color, Mesh, MeshBasicMaterial, Vector3, type Material, type Object3D } from 'three';
+import { Color, Group, Mesh, MeshBasicMaterial, Vector3, type Material, type Object3D } from 'three';
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
-import { nodePart, partById_ } from '../lib/parts';
+import { explodeOffset, nodeMoves, nodePart, partById_ } from '../lib/parts';
 import { VIEWS, shortestAngle, type ViewName } from '../lib/views';
 
 // The booth, drawn flat. An orthographic camera, unlit MeshBasicMaterial in
@@ -26,11 +26,15 @@ const VISIBLE_HEIGHT_M = 0.92;
 const OUTLINE_PX = 2;
 const OUTLINE_HIT_PX = 4;
 
-/** The scroll scene writes here every frame. The viewer reads it when active. */
+/** The scroll tour writes here as the page scrolls. The viewer reads it when active. */
 export interface SceneDrive {
   active: boolean;
   /** Azimuth in radians. */
   azimuth: number;
+  /** Polar angle in radians. */
+  polar: number;
+  /** 0 is assembled, 1 is fully exploded. */
+  explode: number;
   /** The part to highlight, or null. */
   part: string | null;
 }
@@ -49,6 +53,7 @@ function flatMaterial(source: Material | Material[]): MeshBasicMaterial[] {
 
 interface NodeProps {
   object: Object3D;
+  registerGroup: (name: string, group: Group, base: Vector3) => void;
   registerMesh: (part: string, mesh: Mesh, base: MeshBasicMaterial[]) => void;
   onOver: (part: string, e: ThreeEvent<PointerEvent>) => void;
   onOut: () => void;
@@ -59,8 +64,18 @@ interface NodeProps {
 }
 
 // Rebuilds the GLB hierarchy as JSX, so drei's Outlines can sit inside each
-// mesh and every mesh knows which part it belongs to.
-function Node({ object, registerMesh, onOver, onOut, onClick, highlighted, inherited }: NodeProps) {
+// mesh, every mesh knows which part it belongs to, and the explode offsets
+// can move each named group.
+function Node({
+  object,
+  registerGroup,
+  registerMesh,
+  onOver,
+  onOut,
+  onClick,
+  highlighted,
+  inherited,
+}: NodeProps) {
   const part = nodePart(object.name) ?? inherited;
   const base = useMemo(
     () => ((object as Mesh).isMesh ? flatMaterial((object as Mesh).material) : null),
@@ -70,6 +85,7 @@ function Node({ object, registerMesh, onOver, onOut, onClick, highlighted, inher
     <Node
       key={child.uuid}
       object={child}
+      registerGroup={registerGroup}
       registerMesh={registerMesh}
       onOver={onOver}
       onOut={onOut}
@@ -78,7 +94,16 @@ function Node({ object, registerMesh, onOver, onOut, onClick, highlighted, inher
       inherited={part}
     />
   ));
-  const transform = { position: object.position, quaternion: object.quaternion, scale: object.scale };
+  const transform = {
+    position: object.position.clone(),
+    quaternion: object.quaternion,
+    scale: object.scale,
+    ref: nodeMoves(object.name)
+      ? (g: Group | null) => {
+          if (g) registerGroup(object.name, g, object.position);
+        }
+      : null,
+  };
   const isHit = highlighted === part;
   if ((object as Mesh).isMesh && base) {
     const mesh = object as Mesh;
@@ -133,11 +158,16 @@ function BoothModel({
   const { scene } = useGLTF(MODEL_URL);
   const controls = useRef<OrbitControlsImpl>(null);
   const meshes = useRef(new Map<string, { mesh: Mesh; base: MeshBasicMaterial[] }[]>());
+  const groups = useRef(new Map<string, { group: Group; base: Vector3 }>());
+  const explodeT = useRef(0);
   const [hovered, setHovered] = useState<{ part: string; point: Vector3 } | null>(null);
   const [scenePart, setScenePart] = useState<string | null>(null);
   const lastReport = useRef<CameraReport>({ azimuth: NaN, polar: NaN });
   const highlighted = scenePart ?? selected;
 
+  const registerGroup = (name: string, group: Group, base: Vector3) => {
+    if (!groups.current.has(name)) groups.current.set(name, { group, base: base.clone() });
+  };
   const registerMesh = (part: string, mesh: Mesh, base: MeshBasicMaterial[]) => {
     const list = meshes.current.get(part) ?? [];
     if (!list.some((m) => m.mesh === mesh)) meshes.current.set(part, [...list, { mesh, base }]);
@@ -176,10 +206,20 @@ function BoothModel({
     const wanted = driving ? (sceneDrive?.part ?? null) : null;
     if (wanted !== scenePart) setScenePart(wanted);
 
+    // The parts move apart only while the tour drives the booth.
+    const target = driving ? (sceneDrive?.explode ?? 0) : 0;
+    const speed = reduced || driving ? 1000 : 4;
+    explodeT.current +=
+      Math.sign(target - explodeT.current) * Math.min(Math.abs(target - explodeT.current), delta * speed);
+    for (const [name, { group, base }] of groups.current) {
+      const [x, y, z] = explodeOffset(name, explodeT.current);
+      group.position.set(base.x + x, base.y + y, base.z + z);
+    }
+
     const ctrl = controls.current;
     if (!ctrl) return;
     let goal: { azimuth: number; polar: number } | null = null;
-    if (driving) goal = { azimuth: sceneDrive?.azimuth ?? 0, polar: Math.PI / 2 };
+    if (driving) goal = { azimuth: sceneDrive?.azimuth ?? 0, polar: sceneDrive?.polar ?? Math.PI / 2 };
     else if (view) goal = VIEWS[view];
     if (goal) {
       const az = ctrl.getAzimuthalAngle();
@@ -244,6 +284,7 @@ function BoothModel({
           <Node
             key={child.uuid}
             object={child}
+            registerGroup={registerGroup}
             registerMesh={registerMesh}
             onOver={onOver}
             onOut={onOut}

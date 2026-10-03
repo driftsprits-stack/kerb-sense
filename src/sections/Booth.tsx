@@ -1,5 +1,6 @@
 import { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { gsap } from 'gsap';
+import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import ErrorBoundary from '../components/ErrorBoundary';
 import Section from '../components/Section';
 import LabelBlock, { StatusLabel } from '../components/LabelBlock';
@@ -9,10 +10,12 @@ import { BOOTH } from '../content';
 import { SLOT } from '../copy';
 import { BOOTH_ASSEMBLED, BOOTH_DIMENSIONS, BOOTH_EXPLODED } from '../lib/artwork';
 import { cataloguePartsOf, partById_ } from '../lib/parts';
-import { THREE_QUARTER, VIEW_LABELS, VIEW_ORDER, isViewName, type ViewName } from '../lib/views';
+import { THREE_QUARTER, VIEW_LABELS, VIEW_ORDER, isViewName, tourPose, type ViewName } from '../lib/views';
 import BoothFallback from '../booth/BoothFallback';
 import { useBoothLoad } from '../booth/useBoothLoad';
-import type { CameraReport } from '../booth/BoothViewer';
+import type { CameraReport, SceneDrive } from '../booth/BoothViewer';
+
+gsap.registerPlugin(ScrollTrigger);
 
 const BoothViewer = lazy(() => import('../booth/BoothViewer'));
 
@@ -34,30 +37,48 @@ export default function Booth() {
   const [manual, setManual] = useState<string | null>(null);
   const [manualOn, setManualOn] = useState(false);
   const [tour, setTour] = useState(0);
-  const tourRef = useRef(0);
+  const tourRef = useRef(-1);
+  const tourListRef = useRef<HTMLOListElement>(null);
+  const manualRef = useRef(false);
+  const drive = useRef<SceneDrive>({
+    active: false,
+    azimuth: THREE_QUARTER,
+    polar: Math.PI / 2,
+    explode: 0,
+    part: null,
+  });
   const [hovered, setHovered] = useState<string | null>(null);
   const [drawing, setDrawing] = useState<'a' | 'b'>('a');
   const [camera, setCamera] = useState<CameraReport>({ azimuth: THREE_QUARTER, polar: Math.PI / 2 });
   const tourStep = BOOTH.tour[tour] ?? BOOTH.tour[0];
   const selected = manualOn ? manual : tourStep.id;
 
-  // The tour: the explanation nearest the middle of the screen is current.
-  // Only on wide, tall screens; elsewhere the explanations are a plain list.
+  // The tour: the explanation at the middle of the screen is current. Only on
+  // wide, tall screens; elsewhere the explanations are a plain list. With
+  // motion on, the scroll position drives the booth continuously: it turns
+  // from three-quarter to front, top and back, then its parts move apart, and
+  // each explanation slides in. No pins, so the page keeps its length and
+  // native scrolling. A manual choice stops the drive until the next block.
   useEffect(() => {
-    const mq = window.matchMedia(TOUR_MEDIA);
-    let io: IntersectionObserver | null = null;
-    const start = () => {
-      io?.disconnect();
-      io = null;
-      if (!mq.matches) return;
-      io = new IntersectionObserver(
-        (entries) => {
-          const hit = entries.find((e) => e.isIntersecting);
-          if (!hit) return;
-          const i = Number((hit.target as HTMLElement).dataset.tour);
-          if (i === tourRef.current) return;
-          // A new explanation hands control back to the tour and turns the booth.
+    const list = tourListRef.current;
+    if (!list) return;
+    const mm = gsap.matchMedia();
+    mm.add({ tour: TOUR_MEDIA, reduce: '(prefers-reduced-motion: reduce)' }, (ctx) => {
+      const { tour: wide, reduce } = ctx.conditions as { tour: boolean; reduce: boolean };
+      if (!wide) return;
+      const blocks = [...list.querySelectorAll<HTMLElement>('[data-tour]')];
+      const update = (p: number) => {
+        const mid = window.innerHeight / 2;
+        const hit = blocks.findIndex((el) => {
+          const r = el.getBoundingClientRect();
+          return r.top <= mid && r.bottom > mid;
+        });
+        // Between blocks (the padding under the last one) the last block stays current.
+        const i = hit >= 0 ? hit : tourRef.current;
+        if (i >= 0 && i !== tourRef.current) {
+          // A new explanation hands control back to the tour.
           tourRef.current = i;
+          manualRef.current = false;
           setTour(i);
           setManualOn(false);
           const v = BOOTH.tour[i]?.view;
@@ -65,26 +86,63 @@ export default function Booth() {
             setView(v);
             setPendingView(v);
           }
+        }
+        const pose = tourPose(p);
+        const d = drive.current;
+        d.active = !reduce && !manualRef.current && i >= 0;
+        d.azimuth = pose.azimuth;
+        d.polar = pose.polar;
+        d.explode = pose.explode;
+        d.part = BOOTH.tour[Math.max(0, i)]?.id ?? null;
+      };
+      ScrollTrigger.create({
+        trigger: list,
+        start: 'top center',
+        // The tour ends when the last explanation leaves the middle. The
+        // padding under it keeps the whole stage in view until then.
+        endTrigger: blocks.at(-1) ?? list,
+        end: 'bottom center',
+        onUpdate: (self) => update(self.progress),
+        onToggle: (self) => {
+          if (!self.isActive) drive.current.active = false;
         },
-        { rootMargin: '-45% 0px -45% 0px' },
-      );
-      document.querySelectorAll('[data-tour]').forEach((el) => io?.observe(el));
-    };
-    start();
-    mq.addEventListener('change', start);
-    return () => {
-      mq.removeEventListener('change', start);
-      io?.disconnect();
-    };
+      });
+      if (!reduce) {
+        // Transform only; opacity stays at 1.
+        for (const el of blocks) {
+          gsap.fromTo(
+            el.querySelector('[data-slide]'),
+            { x: 64 },
+            {
+              x: 0,
+              ease: 'none',
+              scrollTrigger: { trigger: el, start: 'top bottom', end: 'top 55%', scrub: true },
+            },
+          );
+        }
+      }
+      // Lazy images above the tour change the page height; measure again.
+      const ro = new ResizeObserver(() => ScrollTrigger.refresh());
+      ro.observe(document.body);
+      return () => {
+        ro.disconnect();
+        drive.current.active = false;
+      };
+    });
+    return () => mm.revert();
   }, []);
 
   const chooseView = useCallback((name: ViewName) => {
+    manualRef.current = true;
+    drive.current.active = false;
     setManualOn(true);
     setView(name);
     setPendingView(name);
   }, []);
   const onViewReached = useCallback(() => setPendingView(null), []);
   const onSelect = useCallback((part: string | null) => {
+    manualRef.current = true;
+    drive.current.active = false;
     setManualOn(true);
     setManual(part);
   }, []);
@@ -157,6 +215,7 @@ export default function Booth() {
                       reduced={reduced}
                       interactive
                       onCamera={setCamera}
+                      drive={drive}
                       canvasLabel={BOOTH.canvasLabel}
                     />
                   </Suspense>
@@ -180,7 +239,8 @@ export default function Booth() {
           </div>
         </div>
         <ol
-          className="lg:col-span-5 [@media(min-width:1024px)_and_(min-height:700px)]:pb-[7vh]"
+          ref={tourListRef}
+          className="lg:col-span-5 [@media(min-width:1024px)_and_(min-height:700px)]:pb-[28vh]"
           aria-label="The booth in three parts"
           data-testid="booth-tour"
         >
@@ -190,12 +250,14 @@ export default function Booth() {
               <li
                 key={t.id}
                 data-tour={i}
-                className="flex flex-col justify-center border-t-[3px] border-black py-4 [@media(min-width:1024px)_and_(min-height:700px)]:min-h-[38vh]"
+                className="flex flex-col justify-center border-t-[3px] border-black py-4 [@media(min-width:1024px)_and_(min-height:700px)]:min-h-[30vh]"
                 aria-current={on ? 'step' : undefined}
               >
-                <LabelBlock colour={on ? 'green' : 'black'}>{String(i + 1)}</LabelBlock>
-                <p className="ks-block mt-2 text-28 md:text-40">{t.label}</p>
-                <p className="mt-1 max-w-[36ch] text-16 md:text-20">{t.line}</p>
+                <div data-slide>
+                  <LabelBlock colour={on ? 'green' : 'black'}>{String(i + 1)}</LabelBlock>
+                  <p className="ks-block mt-2 text-28 md:text-40">{t.label}</p>
+                  <p className="mt-1 max-w-[36ch] text-16 md:text-20">{t.line}</p>
+                </div>
               </li>
             );
           })}
@@ -213,11 +275,11 @@ export default function Booth() {
               <img
                 src={BOOTH_ASSEMBLED}
                 alt={BOOTH.assembledAlt}
-                width={1200}
-                height={1200}
+                width={887}
+                height={966}
                 loading="lazy"
                 decoding="async"
-                className="aspect-[4/3] w-full object-contain p-4"
+                className="aspect-[4/3] w-full object-contain p-2"
               />
             }
             b={
@@ -225,11 +287,11 @@ export default function Booth() {
                 <img
                   src={BOOTH_EXPLODED}
                   alt={BOOTH.explodedAlt}
-                  width={1200}
-                  height={900}
+                  width={1375}
+                  height={1583}
                   loading="lazy"
                   decoding="async"
-                  className="aspect-[4/3] w-full object-contain"
+                  className="aspect-[4/3] w-full object-contain p-2"
                 />
               ) : (
                 <ExplodedDrawing title={BOOTH.explodedAlt} />

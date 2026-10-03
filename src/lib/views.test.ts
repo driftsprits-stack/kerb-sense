@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { VIEWS, VIEW_ORDER, VIEW_LABELS, isViewName, shortestAngle } from './views';
+import {
+  BACK_THREE_QUARTER,
+  THREE_QUARTER,
+  VIEWS,
+  VIEW_ORDER,
+  VIEW_LABELS,
+  isViewName,
+  shortestAngle,
+  tourPose,
+} from './views';
 
 describe('views', () => {
   it('has the four snap views in order', () => {
@@ -37,5 +46,15 @@ describe('atView', () => {
     expect(atView('top', 0, 0.01)).toBe(true);
     expect(atView('front', THREE_QUARTER, Math.PI / 2)).toBe(false);
     expect(atView('back', Math.PI / 2, Math.PI / 2)).toBe(false);
+  });
+
+  it('runs the scroll tour from three-quarter to front, top, back, then explodes', () => {
+    expect(tourPose(0)).toEqual({ azimuth: THREE_QUARTER, polar: Math.PI / 2, explode: 0 });
+    expect(tourPose(0.25)).toEqual({ azimuth: 0, polar: Math.PI / 2, explode: 0 });
+    expect(tourPose(0.5).polar).toBeCloseTo(0.35);
+    expect(tourPose(0.875)).toEqual({ ...BACK_THREE_QUARTER, explode: 0.5 });
+    expect(tourPose(2)).toEqual(tourPose(1));
+    expect(tourPose(1).explode).toBe(1);
+    expect(tourPose(-1)).toEqual(tourPose(0));
   });
 });

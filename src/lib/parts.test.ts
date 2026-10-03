@@ -1,5 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { PARTS, SCENE_PARTS, cataloguePartsOf, nodePart, partById_, partForNode, partNumber } from './parts';
+import {
+  PARTS,
+  SCENE_PARTS,
+  cataloguePartsOf,
+  explodeOffset,
+  nodeMoves,
+  nodePart,
+  partById_,
+  partForNode,
+  partNumber,
+} from './parts';
 
 describe('parts', () => {
   it('has six catalogue parts numbered 1 to 6, plus the cabinet', () => {
@@ -56,5 +66,23 @@ describe('parts', () => {
 
   it('highlights only catalogue parts in the scene', () => {
     for (const id of SCENE_PARTS) expect(partNumber(id)).toBeDefined();
+  });
+
+  it('moves only real part nodes when exploded, and scales the offset by t', () => {
+    for (const node of [
+      'screen_glass',
+      'joystick',
+      'button_up',
+      'hinge_left',
+      'latch_pin_right',
+      'hook_left',
+    ]) {
+      expect(nodeMoves(node)).toBe(true);
+      expect(nodePart(node)).toBeDefined();
+    }
+    expect(nodeMoves('cabinet')).toBe(false);
+    expect(explodeOffset('screen_glass', 0.5)).toEqual([0, 0, 0.16]);
+    expect(explodeOffset('screen_glass', 3)).toEqual([0, 0, 0.32]);
+    expect(explodeOffset('cabinet', 1)).toEqual([0, 0, 0]);
   });
 });

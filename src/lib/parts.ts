@@ -97,3 +97,38 @@ export function partNumber(id: string): number | undefined {
 
 /** The order the scroll scene highlights parts in. */
 export const SCENE_PARTS = ['screen', 'joystick', 'buttons', 'hinges', 'latches'] as const;
+
+export type Vec3 = readonly [number, number, number];
+
+/** How far each node moves in the exploded model, in metres along one clean axis. */
+const EXPLODE: Readonly<Record<string, Vec3>> = {
+  screen_glass: [0, 0, 0.32],
+  joystick: [0, 0.28, 0],
+  joystick_button: [0, 0.28, 0],
+  joystick_shaft: [0, 0.28, 0],
+  joystick_dust_washer: [0, 0.28, 0],
+  button_up: [0, 0.2, 0.14],
+  button_down: [0, 0.2, -0.04],
+  button_left: [-0.12, 0.2, 0.05],
+  button_right: [0.12, 0.2, 0.05],
+  hinge_left: [0.18, 0, -0.28],
+  hinge_right: [-0.18, 0, -0.28],
+  latch_left: [0.2, 0.08, -0.3],
+  latch_right: [-0.2, 0.08, -0.3],
+  latch_pin_left: [0.2, 0.08, -0.3],
+  latch_pin_right: [-0.2, 0.08, -0.3],
+  hook_left: [0.18, 0.12, -0.34],
+  hook_right: [-0.18, 0.12, -0.34],
+};
+
+/** True when a node moves in the exploded model. */
+export function nodeMoves(node: string): boolean {
+  return node in EXPLODE;
+}
+
+/** A node's explode offset, scaled by t in [0, 1]. Other nodes do not move. */
+export function explodeOffset(node: string, t: number): Vec3 {
+  const o = EXPLODE[node];
+  const k = Math.min(1, Math.max(0, t));
+  return o ? [o[0] * k, o[1] * k, o[2] * k] : [0, 0, 0];
+}
