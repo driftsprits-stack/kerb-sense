@@ -1,0 +1,13 @@
+{
+  "name": "Kerb Sense",
+  "short_name": "Kerb Sense",
+  "description": "A free browser game and arcade booth that teaches students to cross roads safely.",
+  "start_url": "/kerb-sense/",
+  "display": "browser",
+  "background_color": "#F2EFE8",
+  "theme_color": "#178048",
+  "icons": [
+    { "src": "/kerb-sense/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/kerb-sense/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

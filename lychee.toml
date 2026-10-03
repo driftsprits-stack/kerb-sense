@@ -1,0 +1,6 @@
+# Link check for the built site. Run in CI with lychee-action.
+exclude = ["doi.org"]
+exclude_path = ["dist/play"]
+accept = [200, 203, 204, 206, 301, 302, 307, 308]
+max_concurrency = 4
+timeout = 20

@@ -1,0 +1,44 @@
+# A free uptime check (standards S16). Every hour it fetches the site and
+# the game. If either fails, it opens one issue (and does not open a second
+# while the first is open).
+name: Uptime check
+
+on:
+  schedule:
+    - cron: '17 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch the site and the game
+        id: fetch
+        run: |
+          set -u
+          fail=0
+          for url in https://driftsprits-stack.github.io/kerb-sense/ https://driftsprits-stack.github.io/kerb-sense/play/; do
+            code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 20 "$url" || echo 000)
+            echo "$url -> $code"
+            if [ "$code" != "200" ]; then fail=1; fi
+          done
+          echo "fail=$fail" >> "$GITHUB_OUTPUT"
+      - name: Open an issue on failure
+        if: steps.fetch.outputs.fail == '1'
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
+        with:
+          script: |
+            const title = 'Uptime check failed';
+            const { data: open } = await github.rest.issues.listForRepo({ owner: context.repo.owner, repo: context.repo.repo, state: 'open', labels: 'uptime' });
+            if (open.some((i) => i.title === title)) return;
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title,
+              labels: ['uptime'],
+              body: 'The hourly uptime check could not fetch the site or the game. See the workflow run for the status codes. Follow docs/DR.md to restore.',
+            });
