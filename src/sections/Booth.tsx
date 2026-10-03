@@ -168,7 +168,7 @@ export default function Booth() {
   }, [detailPart?.id]);
 
   const current = partById_(hovered ?? selected ?? '');
-  const fallback = <BoothFallback view={view} message={message} selected={selected} />;
+  const fallback = <BoothFallback view={view} message={message} selected={selected} onChoose={chooseView} />;
   const parts = cataloguePartsOf();
   const detail = parts.find((p) => p.id === detailPart?.id);
 
@@ -223,10 +223,24 @@ export default function Booth() {
               {mode === 'ready' ? (
                 <ErrorBoundary
                   name="booth viewer"
-                  fallback={<BoothFallback view={view} message={BOOTH.error} selected={selected} />}
+                  fallback={
+                    <BoothFallback
+                      view={view}
+                      message={BOOTH.error}
+                      selected={selected}
+                      onChoose={chooseView}
+                    />
+                  }
                 >
                   <Suspense
-                    fallback={<BoothFallback view={view} message={BOOTH.loading} selected={selected} />}
+                    fallback={
+                      <BoothFallback
+                        view={view}
+                        message={BOOTH.loading}
+                        selected={selected}
+                        onChoose={chooseView}
+                      />
+                    }
                   >
                     <BoothViewer
                       view={pendingView}

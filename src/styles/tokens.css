@@ -519,3 +519,46 @@
 .ks-grid-ground > * {
   position: relative;
 }
+
+/* Page transitions (website shortlist pick 29), with the browser's own
+   cross-document View Transitions instead of Barba: a full page load still
+   happens, so history, focus and the title work as normal. The new page
+   wipes in from the left over the old one, as one solid panel. Clip and
+   transform only, no fade. Only pages that load this stylesheet take part,
+   so /play/ (the unchanged game) always opens with a plain navigation.
+   Browsers without support simply navigate. */
+@view-transition {
+  navigation: auto;
+}
+::view-transition-old(root) {
+  animation: none;
+}
+::view-transition-new(root) {
+  animation: ks-wipe-in 380ms cubic-bezier(0.65, 0, 0.35, 1) both;
+}
+@keyframes ks-wipe-in {
+  from {
+    clip-path: inset(0 100% 0 0);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  @view-transition {
+    navigation: none;
+  }
+}
+
+/* Lenis, only when ?smooth=1 (src/lib/smooth.ts). The rules Lenis needs,
+   without its autoToggle transition, which this site does not use. */
+html.lenis,
+html.lenis body {
+  height: auto;
+}
+.lenis.lenis-stopped {
+  overflow: clip;
+}
+.lenis [data-lenis-prevent] {
+  overscroll-behavior: contain;
+}

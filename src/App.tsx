@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import Nav, { StickyPlay } from './components/Nav';
 import Rail, { useCurrentSection } from './components/Rail';
 import Hero from './sections/Hero';
@@ -15,6 +16,12 @@ import Footer from './sections/Footer';
 // One nav: the numbered rail on wide screens, the full-screen menu below.
 export default function App() {
   const current = useCurrentSection();
+  // A deep link such as #plan: the browser jumps before React has drawn the
+  // sections, so jump again once they exist.
+  useEffect(() => {
+    const id = decodeURIComponent(window.location.hash.slice(1));
+    if (id) document.getElementById(id)?.scrollIntoView();
+  }, []);
   return (
     <>
       <a
