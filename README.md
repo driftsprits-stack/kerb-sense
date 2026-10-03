@@ -1,95 +1,67 @@
+[**Visit the Kerb Sense website**](https://driftsprits-stack.github.io/kerb-sense/) | [**Play the game**](https://driftsprits-stack.github.io/kerb-sense/play/)
+
+```text
+       .----------------.
+       |    ________    |     kerb sense
+       |   /  .--.  \   |     ----------
+       |  |  (    )  |  |     Free browser road-safety game
+       |   \  '--'  /   |     Singapore
+       |    '------'    |     Keyboard and touch controls
+       |    ________    |     No download or account needed
+       |   /  .--.  \   |
+       |  |  (    )  |  |     Wait, and you get there first.
+       |   \  '--'  /   |
+       |    '------'    |
+       |    ________    |
+       |   /  .--.  \   |
+       |  |  (####)  |  |
+       |   \  '--'  /   |
+       |    '------'    |
+       '-------++-------'
+               ||
+               ||
+               ||
+               ||
+            ___||___
+           /________\
+```
+
 # Kerb Sense
 
-Wait, and you get there first.
+Kerb Sense is a free browser game about crossing roads safely while a phone competes for your attention. Look for traffic, wait for the signal and check messages only after you reach the pavement. Safe decisions help your score.
 
-Kerb Sense is a free browser game and a planned six-month schools programme. The safest way to cross is also the best way to score. This repository holds the public website and the game.
+Five students built the game for Delta Challenge 2026, Track B: Road Safety Education. The project also includes a designed arcade booth that has not been built yet, and a planned six-month programme in three schools. The schools and funding are not confirmed.
 
-- Website: https://driftsprits-stack.github.io/kerb-sense/
-- Game: https://driftsprits-stack.github.io/kerb-sense/play/
-- Project: Delta Challenge 2026, Track B, Road Safety Education. Team: TEAM if raeann cared.
+## How to play
 
-## What is in this repository
+1. [Open the game](https://driftsprits-stack.github.io/kerb-sense/play/) while you are somewhere safe and stationary.
+2. Press **I promise** to agree to keep your phone away while crossing in real life.
+3. Choose a difficulty: **Primary**, **Teenager** or **Office Worker**.
+4. Press **Start crossing**. Use **How to play** on the start screen if you need a reminder.
 
-| Path                     | What it is                                                                                                                                                                     |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `public/play/index.html` | The game. One file. It is not changed by the website. CI checks its SHA-256.                                                                                                   |
-| `src/`                   | The website: React, TypeScript, Tailwind tokens.                                                                                                                               |
-| `src/lib/`               | Pure logic with unit tests: views, explode offsets, grid state, retry, budget, the copy pool.                                                                                  |
-| `src/booth/`             | The 3D booth viewer (react-three-fiber) and its static fallback.                                                                                                               |
-| `src/copy-pool.json`     | The rotating hero headlines and section titles, copied from `website-handoff/copy-pool.json`.                                                                                  |
-| `scripts/`               | Build-time tools: icons, model compression, the font subset, the gameplay clip, the design audit, the writing check, the sitemap, the game hash check, the review screenshots. |
-| `tests/`                 | Playwright end-to-end tests with axe-core at 375, 768, 1024 and 1440 px, and screenshot tests.                                                                                 |
-| `docs/`                  | Compliance matrix, legal review, disaster recovery, ADRs and screenshots.                                                                                                      |
-| `website-handoff/`       | The design system, the content brief, the standards, the copy pool, the research notes and the plan.                                                                           |
+### On a computer
 
-## How to run it
+| Control                  | Action                                                          |
+| ------------------------ | --------------------------------------------------------------- |
+| Arrow keys or W, A, S, D | Move                                                            |
+| Mouse cursor             | Aim your view to look for traffic                               |
+| Space                    | Open a queued message, or act on the music dial when it appears |
+| 1, 2, 3                  | Choose a reply when message options are shown                   |
+| Escape or P              | Pause or resume                                                 |
 
-You need Node 22. The font subset also needs Python with `fonttools` and `brotli`.
+### On a phone or tablet
 
-```sh
-npm ci
-npm run dev          # http://localhost:5173/kerb-sense/
-npm run build        # checks the game hash and the writing, builds dist/, runs the design audit, writes the sitemap
-npm run preview      # serves dist/ at http://localhost:4173/kerb-sense/
-```
+- Tap the game area to hop forward, or swipe in the direction you want to move.
+- Drag your finger to look around.
+- Tap the notification badge to open a message after you reach the pavement.
+- Tap a reply to choose it, the music dial when prompted, or the pause icon to pause.
 
-## How to test it
+### Cross safely
 
-```sh
-npm run check:play      # the game file is unchanged
-npm run check:writing   # no em dashes, no AI-style wording in the copy and docs
-npm run lint
-npm run typecheck
-npm test                # unit tests with coverage
-npm run test:e2e        # Playwright, against the built site
-npm run lhci            # Lighthouse CI, against the preview server
-npm run screenshots     # the review images in docs/screenshots/ (run npm run preview first)
-```
+- Wait at the kerb. Look right, look left, then look right again.
+- Cross between the marked lines on the green signal, and keep checking traffic. Cars can still move on green.
+- Wait if a speeding-car warning appears.
+- Finish crossing before you answer a message.
+- The wall pauses its advance while you wait at a red signal. You do not need to rush into traffic.
 
-On a machine without a GPU, set `PW_SOFTWARE_GL=1` so Playwright can run WebGL.
-
-## How to regenerate the assets
-
-```sh
-npm run assets       # favicons from the monogram; the GLB with meshopt; the Noto Sans JP subset
-npm run clip         # records a real gameplay clip with Playwright and ffmpeg
-```
-
-The sources for the assets are in `website-handoff/assets/`. The SVG renders, parts, logo and textures are copied to `src/assets/` as they are.
-
-## How it is deployed
-
-Every push to `main` runs `.github/workflows/pages.yml`. It builds the site and deploys `dist/` to GitHub Pages. The base path is `/kerb-sense/`. See `docs/DR.md` for the restore steps.
-
-## Architecture
-
-```mermaid
-flowchart LR
-  subgraph Build["Build (GitHub Actions)"]
-    A[website-handoff/assets] -->|scripts/icons.mjs, model.mjs, subset-font.mjs| B[src/assets, public/]
-    G[public/play/index.html] -->|scripts/check-play-hash.mjs| H{SHA-256 unchanged?}
-    C[src/content.ts, copy-pool.json, docs] -->|scripts/writing.mjs| W{Writing check}
-    S[src/] -->|Vite + React + Tailwind| D[dist/]
-    B --> D
-    G --> D
-    D -->|scripts/audit.mjs| E{Design audit}
-    E -->|pass| P[GitHub Pages]
-  end
-  subgraph Browser
-    P --> I[index.html]
-    I --> R[react chunk]
-    I --> V[BoothViewer chunk, lazy]
-    V --> T[three chunk, lazy]
-    V -->|fetch with retry| M[booth-flat.glb]
-    V -.->|no WebGL, reduced motion, or failure| F[SVG renders]
-    I --> K[/play/ link]
-  end
-```
-
-## Design rules
-
-The design system is in `website-handoff/DESIGN.md` and the standards are in `website-handoff/WEBSITE-STANDARDS.md`. In short: black, white, paper and green only; Helvetica Neue for text, Kerb Block for display, a Noto Sans JP subset for four Japanese strings; a full stop only on the hero headline and the section titles; a 12-column grid; no gradients, shadows, opacity animation or rounded corners; motion is transform only and scrubbed to the scroll. `scripts/audit.mjs` fails the build if the built CSS, HTML, JS or SVG breaks these rules.
-
-## Licence
-
-See `LICENSE`. The game, renders, logo, fonts and text belong to the Kerb Sense team. Noto Sans JP is under the SIL Open Font License.
+In real life, cross on the green man and check your phone only on the pavement. Play this game only while stationary, away from traffic.
