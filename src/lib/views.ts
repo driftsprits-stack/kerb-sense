@@ -85,3 +85,13 @@ export function tourPose(p: number): TourPose {
     explode: mix(a.explode, b.explode),
   };
 }
+
+/** The camera's turn for the readout: whole degrees from 0 to 359. */
+export function turnDegrees(azimuth: number): number {
+  return ((Math.round((azimuth * 180) / Math.PI) % 360) + 360) % 360;
+}
+
+/** The camera's tilt above the horizon for the readout: 0 is level, 90 is straight down. */
+export function tiltDegrees(polar: number): number {
+  return Math.round(90 - (polar * 180) / Math.PI);
+}

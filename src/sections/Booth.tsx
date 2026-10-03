@@ -10,7 +10,16 @@ import { BOOTH } from '../content';
 import { SLOT } from '../copy';
 import { BOOTH_ASSEMBLED, BOOTH_DIMENSIONS, BOOTH_EXPLODED } from '../lib/artwork';
 import { cataloguePartsOf, partById_ } from '../lib/parts';
-import { THREE_QUARTER, VIEW_LABELS, VIEW_ORDER, isViewName, tourPose, type ViewName } from '../lib/views';
+import {
+  THREE_QUARTER,
+  VIEW_LABELS,
+  VIEW_ORDER,
+  isViewName,
+  tiltDegrees,
+  tourPose,
+  turnDegrees,
+  type ViewName,
+} from '../lib/views';
 import BoothFallback from '../booth/BoothFallback';
 import { useBoothLoad } from '../booth/useBoothLoad';
 import type { CameraReport, SceneDrive } from '../booth/BoothViewer';
@@ -174,22 +183,35 @@ export default function Booth() {
       <div className="grid gap-4 lg:grid-cols-12" data-testid="booth-scene">
         <div className="lg:col-span-7">
           <div className="flex flex-col gap-2 [@media(min-width:1024px)_and_(min-height:700px)]:sticky [@media(min-width:1024px)_and_(min-height:700px)]:top-[88px]">
-            <div className="flex flex-wrap gap-1" role="group" aria-label="Views" data-testid="view-group">
-              {VIEW_ORDER.map((name) => {
-                const on = view === name;
-                return (
-                  <button
-                    key={name}
-                    type="button"
-                    className={`ks-button ks-button--small ${on ? 'ks-button--black' : 'ks-button--outline-black'}`}
-                    aria-pressed={on}
-                    onClick={() => chooseView(name)}
-                    data-testid={`view-${name}`}
-                  >
-                    {VIEW_LABELS[name]}
-                  </button>
-                );
-              })}
+            {/* The view control, like a selector on a machine (shortlist pick 27): one
+                joined row of positions, and a readout of the camera angle that follows
+                both the buttons and the scroll tour. */}
+            <div className="flex border-[3px] border-black bg-paper">
+              <div className="flex min-w-0 flex-1" role="group" aria-label="Views" data-testid="view-group">
+                {VIEW_ORDER.map((name) => {
+                  const on = view === name;
+                  return (
+                    <button
+                      key={name}
+                      type="button"
+                      className={`ks-block min-h-[40px] min-w-0 flex-1 border-r-[3px] border-black px-1 text-14 sm:flex-none sm:px-3 ${on ? 'bg-black text-white' : 'bg-white hover:bg-black hover:text-white'}`}
+                      aria-pressed={on}
+                      onClick={() => chooseView(name)}
+                      data-testid={`view-${name}`}
+                    >
+                      {VIEW_LABELS[name]}
+                    </button>
+                  );
+                })}
+              </div>
+              <p
+                className="ks-block ml-auto flex shrink-0 items-center gap-3 whitespace-nowrap border-l-[3px] border-black bg-black px-3 text-14 text-white max-sm:hidden"
+                aria-hidden="true"
+                data-testid="view-readout"
+              >
+                <span>TURN {turnDegrees(camera.azimuth)}</span>
+                <span>TILT {tiltDegrees(camera.polar)}</span>
+              </p>
             </div>
             <div
               ref={stageRef}
@@ -384,7 +406,7 @@ export default function Booth() {
 
       {/* The dimensions and one row of specs. */}
       <div className="mt-8 grid gap-4 md:grid-cols-12 md:items-start">
-        <div className="border-[3px] border-black bg-white md:col-span-7">
+        <div className="ks-grid-ground border-[3px] border-black md:col-span-7">
           {BOOTH_DIMENSIONS ? (
             <img
               src={BOOTH_DIMENSIONS}

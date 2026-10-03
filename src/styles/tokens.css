@@ -501,3 +501,21 @@
     animation: none;
   }
 }
+
+/* A square grid behind the dimension drawing (website shortlist pick 8):
+   paper lines on white, so the drawing stays the strongest thing. The grid
+   stops before the drawing's captions (at 66 %), so no text sits on it. */
+.ks-grid-ground {
+  position: relative;
+  background-color: var(--ks-white);
+}
+.ks-grid-ground::before {
+  content: '';
+  position: absolute;
+  inset: 0 34% 0 0;
+  background-image: url('../assets/art/grid-40.svg');
+  background-size: 24px 24px;
+}
+.ks-grid-ground > * {
+  position: relative;
+}

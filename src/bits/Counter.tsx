@@ -12,6 +12,10 @@ interface CounterProps {
   className?: string;
 }
 
+// Each digit row is taller than 1em, because Kerb Block's digits reach past a
+// 1em line box and would be clipped by the mask.
+const ROW = '1.2em';
+
 export default function Counter({ value, fontSize = 96, className = '' }: CounterProps) {
   const ref = useRef<HTMLSpanElement>(null);
   const [reduced] = useState(
@@ -69,7 +73,7 @@ export default function Counter({ value, fontSize = 96, className = '' }: Counte
     <span
       ref={ref}
       className={`inline-flex ks-mask align-bottom ${className}`}
-      style={{ fontSize, height: '1em', lineHeight: 1 }}
+      style={{ fontSize, height: ROW, lineHeight: ROW }}
       aria-label={formatted}
       role="img"
     >
@@ -91,7 +95,7 @@ export default function Counter({ value, fontSize = 96, className = '' }: Counte
               style={reduced ? { transform: `translateY(${-token.digit * 10}%)` } : undefined}
             >
               {Array.from({ length: 10 }, (_, n) => (
-                <span key={n} style={{ height: '1em', display: 'block' }}>
+                <span key={n} style={{ height: ROW, display: 'block' }}>
                   {n}
                 </span>
               ))}

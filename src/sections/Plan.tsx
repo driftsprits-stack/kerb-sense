@@ -4,8 +4,9 @@ import LabelBlock, { StatusLabel } from '../components/LabelBlock';
 import { PLAN } from '../content';
 import { SLOT } from '../copy';
 
-// The six-month plan as a ruled table, and the six targets as big numbers
-// with small labels. Every number carries "TARGET". Each counter rolls once.
+// The six-month plan as a ruled table, and the six targets: one big value,
+// a short label and one line of context. Every number carries "TARGET".
+// Each counter rolls once.
 export default function Plan() {
   return (
     <Section
@@ -30,12 +31,19 @@ export default function Plan() {
           data-testid="targets"
         >
           {PLAN.targets.map((t) => (
-            <li key={t.label} className="border-b border-black pb-2">
-              <LabelBlock colour="green">{PLAN.targetLabel}</LabelBlock>
-              <p className="ks-block mt-2 text-white">
-                <Counter value={t.value} fontSize="clamp(32px, 4.2vw, 56px)" className="text-black" />
+            <li key={t.label} className="border-b border-black pb-3">
+              <p className="flex flex-wrap items-center gap-2">
+                <LabelBlock colour="green">{PLAN.targetLabel}</LabelBlock>
+                {t.atLeast && <span className="ks-block text-12">{PLAN.atLeast}</span>}
               </p>
-              <p className="ks-block mt-1 text-12">{t.label}</p>
+              <p className="ks-block mt-2 flex items-end gap-1 text-black">
+                <Counter value={t.value} fontSize="clamp(32px, 4.2vw, 56px)" />
+                {t.unit && (
+                  <span className="mb-[0.3em] text-[clamp(18px,2.2vw,28px)] leading-none">{t.unit}</span>
+                )}
+              </p>
+              <p className="ks-block mt-2 text-14">{t.label}</p>
+              <p className="mt-1 text-14">{t.detail}</p>
             </li>
           ))}
         </ul>

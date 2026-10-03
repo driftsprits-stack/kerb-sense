@@ -276,4 +276,34 @@ test.describe('redesign', () => {
     await expect(page.getByTestId('clip-link')).toHaveAttribute('href', /play\/$/);
     await expect(page.locator('iframe')).toHaveCount(0);
   });
+
+  test('the shortlist art is in place and decorative (picks 8, 22, 23, 27, 28)', async ({ page }) => {
+    await page.goto(HOME);
+    // Pick 23: every section tab carries its marker, hidden from assistive technology.
+    await expect(page.locator('main h2 svg[aria-hidden="true"]')).toHaveCount(7);
+    // Pick 27: the view control has a readout on screens from 640 px.
+    const wideEnough = (page.viewportSize()?.width ?? 0) >= 640;
+    await expect(page.getByTestId('view-readout')).toBeVisible({ visible: wideEnough });
+    if (wideEnough) await expect(page.getByTestId('view-readout')).toContainText('TURN');
+    // Pick 22: the mark field beside PLAY is decoration only, from 768 px.
+    await expect(page.getByTestId('cipher-patch')).toHaveAttribute('alt', '');
+    // Pick 28: each target has a label and one line of context.
+    await expect(page.locator('[data-testid="targets"] li')).toHaveCount(6);
+    await expect(page.locator('[data-testid="targets"]')).toContainText(
+      'At least 16 run a booth on their own.',
+    );
+    // Pick 8: the grid sits behind the dimension drawing.
+    await expect(page.locator('.ks-grid-ground img')).toHaveCount(1);
+  });
+
+  test('the share images: Kiosk for the home page, Specimen for the other pages (picks 18, 25)', async ({
+    page,
+  }) => {
+    await page.goto(HOME);
+    await expect(page.locator('meta[property="og:image"]')).toHaveAttribute('content', /og-image\.png$/);
+    for (const route of ['./privacy/', './terms/', './404.html']) {
+      await page.goto(route);
+      await expect(page.locator('meta[property="og:image"]')).toHaveAttribute('content', /og-specimen\.png$/);
+    }
+  });
 });

@@ -211,7 +211,9 @@ test.describe('other routes', () => {
       'href',
       '/kerb-sense/play/',
     );
-    await expect(page.locator('header img')).toHaveAttribute('src', /kerbsense-wordmark-on-green/);
+    await expect(page.locator('header img')).toHaveAttribute('src', /kerbsense-wordmark-black/);
+    // The pixel booth (shortlist pick 21) sits beside the text, not under it.
+    await expect(page.locator('main img[src*="oddgrid-booth"]')).toBeVisible();
     await noHorizontalScroll(page);
     await expectNoSeriousViolations(page);
   });
@@ -222,6 +224,7 @@ test.describe('other routes', () => {
       'sitemap.xml',
       'site.webmanifest',
       'og-image.png',
+      'og-specimen.png',
       'favicon.svg',
       'favicon.ico',
       'models/booth-flat.glb',
