@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useMotionPaused, useReducedMotion } from '../lib/motion';
 import ErrorBoundary from '../components/ErrorBoundary';
 import Section from '../components/Section';
 import Stepper from '../components/Stepper';
@@ -18,32 +19,37 @@ const playUrl = `${base}play/`;
 function Clip() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [failed, setFailed] = useState(false);
-  const [reduced, setReduced] = useState(
-    () => typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches,
-  );
+  const reduced = useReducedMotion();
+  const paused = useMotionPaused();
 
-  useEffect(() => {
-    const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
-    const onChange = () => setReduced(mq.matches);
-    mq.addEventListener('change', onChange);
-    return () => mq.removeEventListener('change', onChange);
-  }, []);
-
+  // Play only while the clip is on screen and motion is allowed; pause when
+  // it scrolls away, the tab is hidden, or the visitor pauses motion.
   useEffect(() => {
     const video = videoRef.current;
-    if (!video || reduced || failed) return;
+    if (!video || failed) return;
+    if (reduced || paused) {
+      video.pause();
+      return;
+    }
+    let visible = false;
+    const sync = () => {
+      if (visible && !document.hidden) video.play().catch(() => undefined);
+      else video.pause();
+    };
     const io = new IntersectionObserver(
       (entries) => {
-        if (entries.some((e) => e.isIntersecting)) {
-          video.play().catch(() => undefined);
-          io.disconnect();
-        }
+        visible = entries.some((e) => e.isIntersecting);
+        sync();
       },
-      { rootMargin: '200px 0px' },
+      { threshold: 0.01 },
     );
     io.observe(video);
-    return () => io.disconnect();
-  }, [reduced, failed]);
+    document.addEventListener('visibilitychange', sync);
+    return () => {
+      io.disconnect();
+      document.removeEventListener('visibilitychange', sync);
+    };
+  }, [reduced, paused, failed]);
 
   return (
     <a
@@ -88,7 +94,7 @@ function Clip() {
 export default function Cross() {
   return (
     <Section id="cross" slot={SLOT.cross} body={CROSS.body}>
-      <div className="grid gap-6 md:grid-cols-12">
+      <div className="grid gap-6 md:grid-cols-12 md:gap-x-3">
         <div className="md:col-span-6">
           <p
             className="inline-block bg-green px-2 py-1 text-14 font-bold text-white"

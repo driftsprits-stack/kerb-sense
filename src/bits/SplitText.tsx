@@ -34,7 +34,7 @@ export default function SplitText({ text, tag = 'h1', className = '', id }: Spli
     const tween = gsap.fromTo(
       split.lines,
       { yPercent: 110 },
-      { yPercent: 0, duration: 0.8, ease: 'power3.out', stagger: 0.08, force3D: true },
+      { yPercent: 0, duration: 0.6, ease: 'power2.out', stagger: { amount: 0.12 }, force3D: true },
     );
     return () => {
       tween.kill();

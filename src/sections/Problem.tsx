@@ -9,7 +9,7 @@ export default function Problem() {
       {/* One centred column: the chart, then the caveat under the bars, then the source. */}
       <div className="mx-auto max-w-[800px]">
         <DeathsChart />
-        <p className="ks-label mt-6 inline-block" data-testid="problem-caveat">
+        <p className="mt-6 max-w-[60ch] text-16 font-bold" data-testid="problem-caveat">
           {PROBLEM.caveat}
         </p>
         <p className="mt-2 text-14" data-testid="problem-source">

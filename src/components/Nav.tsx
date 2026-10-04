@@ -13,7 +13,11 @@ export default function Nav({ current }: { current: SectionId | null }) {
   return (
     <header className="field-paper sticky top-0 z-50 border-b-[3px] border-black">
       <nav className="ks-container flex h-8 items-center justify-between gap-3" aria-label="Main">
-        <a href={`${base}#top`} className="shrink-0" aria-label="Kerb Sense, go to the top of the page">
+        <a
+          href={`${base}#top`}
+          className="flex min-h-[44px] shrink-0 items-center"
+          aria-label="Kerb Sense, go to the top of the page"
+        >
           <Logo height={22} />
         </a>
         <p

@@ -30,8 +30,9 @@ export default function Stepper({ steps, icon, stepLabel }: StepperProps) {
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     const tween = gsap.fromTo(
       panel,
-      { xPercent: 12 * direction.current },
-      { xPercent: 0, duration: 0.3, ease: 'power2.out', force3D: true },
+      // A fixed shift, so it does not grow with the column: 24 px, 16 px below 1024.
+      { x: (window.innerWidth >= 1024 ? 24 : 16) * direction.current },
+      { x: 0, duration: 0.3, ease: 'power2.out', force3D: true },
     );
     return () => {
       tween.kill();
@@ -54,7 +55,7 @@ export default function Stepper({ steps, icon, stepLabel }: StepperProps) {
       <div className="overflow-clip">
         <div
           ref={panelRef}
-          className="grid grid-cols-[96px_minmax(0,1fr)] items-center gap-3 py-3 md:grid-cols-[160px_minmax(0,1fr)]"
+          className="grid grid-cols-[96px_minmax(0,1fr)] items-center gap-2 py-3 xl:grid-cols-[160px_minmax(0,1fr)] xl:gap-3"
         >
           <div className="aspect-square w-full border-[3px] border-black bg-white" data-testid="step-icon">
             {icon(step.id, index)}
@@ -62,7 +63,7 @@ export default function Stepper({ steps, icon, stepLabel }: StepperProps) {
           <div>
             <p className="ks-label">{`${stepLabel} ${index + 1}`}</p>
             <Tabs.Content value={step.id} forceMount className="mt-2" data-testid="step-panel">
-              <p className="ks-block text-28 md:text-40">{step.label}</p>
+              <p className="ks-block text-28 [text-wrap:balance] xl:text-40">{step.label}</p>
               <p className="mt-1 text-16">{step.line}</p>
             </Tabs.Content>
           </div>

@@ -1,4 +1,15 @@
-import { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import {
+  Fragment,
+  Suspense,
+  forwardRef,
+  lazy,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import ErrorBoundary from '../components/ErrorBoundary';
@@ -9,11 +20,12 @@ import { DimensionDrawing, ExplodedDrawing, partImage } from '../components/Draw
 import { BOOTH } from '../content';
 import { SLOT } from '../copy';
 import { BOOTH_ASSEMBLED, BOOTH_DIMENSIONS, BOOTH_EXPLODED } from '../lib/artwork';
-import { cataloguePartsOf, partById_ } from '../lib/parts';
+import { cataloguePartsOf, partById_, type CataloguePart } from '../lib/parts';
 import {
   THREE_QUARTER,
   VIEW_LABELS,
   VIEW_ORDER,
+  atView,
   isViewName,
   tiltDegrees,
   tourPose,
@@ -58,6 +70,12 @@ export default function Booth() {
   });
   const [hovered, setHovered] = useState<string | null>(null);
   const [drawing, setDrawing] = useState<'a' | 'b'>('a');
+  const wide = useWide();
+  // The preset the scroll tour's camera is at (null between presets), or
+  // undefined when the tour does not drive the camera.
+  const [drivenView, setDrivenView] = useState<ViewName | null | undefined>(undefined);
+  const drivenRef = useRef<ViewName | null | undefined>(undefined);
+  const [tourLive, setTourLive] = useState(false);
   const [camera, setCamera] = useState<CameraReport>({ azimuth: THREE_QUARTER, polar: Math.PI / 2 });
   const tourStep = BOOTH.tour[tour] ?? BOOTH.tour[0];
   const selected = manualOn ? manual : tourStep.id;
@@ -74,6 +92,7 @@ export default function Booth() {
     const mm = gsap.matchMedia();
     mm.add({ tour: TOUR_MEDIA, reduce: '(prefers-reduced-motion: reduce)' }, (ctx) => {
       const { tour: wide, reduce } = ctx.conditions as { tour: boolean; reduce: boolean };
+      setTourLive(wide);
       if (!wide) return;
       const blocks = [...list.querySelectorAll<HTMLElement>('[data-tour]')];
       const update = (p: number) => {
@@ -93,7 +112,9 @@ export default function Booth() {
           const v = BOOTH.tour[i]?.view;
           if (v && isViewName(v)) {
             setView(v);
-            setPendingView(v);
+            // With motion, the scroll owns the camera; a stale preset must not
+            // wait to swing it later. With reduced motion, the view steps.
+            if (reduce) setPendingView(v);
           }
         }
         const pose = tourPose(p);
@@ -103,6 +124,14 @@ export default function Booth() {
         d.polar = pose.polar;
         d.explode = pose.explode;
         d.part = BOOTH.tour[Math.max(0, i)]?.id ?? null;
+        // A view button reads as pressed only while the camera is at it.
+        const at = d.active
+          ? (VIEW_ORDER.find((n) => atView(n, pose.azimuth, pose.polar)) ?? null)
+          : undefined;
+        if (at !== drivenRef.current) {
+          drivenRef.current = at;
+          setDrivenView(at);
+        }
       };
       ScrollTrigger.create({
         trigger: list,
@@ -112,20 +141,19 @@ export default function Booth() {
         endTrigger: blocks.at(-1) ?? list,
         end: 'bottom center',
         onUpdate: (self) => update(self.progress),
-        onToggle: (self) => {
-          if (!self.isActive) drive.current.active = false;
-        },
+        // Leaving the tour keeps its last pose (the exploded rear view, or
+        // the first view above it) until the visitor chooses something.
       });
       if (!reduce) {
         // Transform only; opacity stays at 1.
         for (const el of blocks) {
           gsap.fromTo(
             el.querySelector('[data-slide]'),
-            { x: 64 },
+            { x: 24 },
             {
               x: 0,
               ease: 'none',
-              scrollTrigger: { trigger: el, start: 'top bottom', end: 'top 55%', scrub: true },
+              scrollTrigger: { trigger: el, start: 'top 85%', end: 'top 60%', scrub: true },
             },
           );
         }
@@ -144,6 +172,8 @@ export default function Booth() {
   const chooseView = useCallback((name: ViewName) => {
     manualRef.current = true;
     drive.current.active = false;
+    drivenRef.current = undefined;
+    setDrivenView(undefined);
     setManualOn(true);
     setView(name);
     setPendingView(name);
@@ -152,6 +182,8 @@ export default function Booth() {
   const onSelect = useCallback((part: string | null) => {
     manualRef.current = true;
     drive.current.active = false;
+    drivenRef.current = undefined;
+    setDrivenView(undefined);
     setManualOn(true);
     setManual(part);
   }, []);
@@ -161,7 +193,11 @@ export default function Booth() {
   useLayoutEffect(() => {
     const el = detailRef.current;
     if (!el || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-    const tween = gsap.fromTo(el, { x: 24 }, { x: 0, duration: 0.25, ease: 'power2.out', force3D: true });
+    const tween = gsap.fromTo(
+      el,
+      { x: window.innerWidth >= 768 ? 24 : 16 },
+      { x: 0, duration: 0.3, ease: 'power2.out', force3D: true },
+    );
     return () => {
       tween.kill();
     };
@@ -180,21 +216,26 @@ export default function Booth() {
       status={<StatusLabel>{BOOTH.statusLabel}</StatusLabel>}
     >
       {/* The tour: the booth stays in view while three short explanations scroll past. */}
-      <div className="grid gap-4 lg:grid-cols-12" data-testid="booth-scene">
+      <div className="grid gap-4 lg:grid-cols-12 lg:gap-x-3" data-testid="booth-scene">
         <div className="lg:col-span-7">
           <div className="flex flex-col gap-2 [@media(min-width:1024px)_and_(min-height:700px)]:sticky [@media(min-width:1024px)_and_(min-height:700px)]:top-[88px]">
             {/* The view control, like a selector on a machine (shortlist pick 27): one
                 joined row of positions, and a readout of the camera angle that follows
                 both the buttons and the scroll tour. */}
-            <div className="flex border-[3px] border-black bg-paper">
-              <div className="flex min-w-0 flex-1" role="group" aria-label="Views" data-testid="view-group">
+            <div className="flex flex-wrap border-[3px] border-black bg-paper">
+              <div
+                className="flex w-full min-w-0 xl:w-auto xl:flex-1"
+                role="group"
+                aria-label="Views"
+                data-testid="view-group"
+              >
                 {VIEW_ORDER.map((name) => {
-                  const on = view === name;
+                  const on = (drivenView === undefined ? view : drivenView) === name;
                   return (
                     <button
                       key={name}
                       type="button"
-                      className={`ks-block min-h-[40px] min-w-0 flex-1 border-r-[3px] border-black px-1 text-14 sm:flex-none sm:px-3 ${on ? 'bg-black text-white' : 'bg-white hover:bg-black hover:text-white'}`}
+                      className={`ks-block min-h-[40px] min-w-0 flex-1 border-r-[3px] border-black px-1 text-14 last:border-r-0 xl:flex-none xl:px-3 xl:last:border-r-[3px] ${on ? 'bg-black text-white' : 'bg-white hover:bg-black hover:text-white'}`}
                       aria-pressed={on}
                       onClick={() => chooseView(name)}
                       data-testid={`view-${name}`}
@@ -205,7 +246,7 @@ export default function Booth() {
                 })}
               </div>
               <p
-                className="ks-block ml-auto flex shrink-0 items-center gap-3 whitespace-nowrap border-l-[3px] border-black bg-black px-3 text-14 text-white max-sm:hidden"
+                className="ks-block flex min-h-[32px] w-full shrink-0 items-center justify-end gap-3 whitespace-nowrap border-t-[3px] border-black bg-black px-3 text-14 text-white max-sm:hidden xl:ml-auto xl:w-auto xl:border-l-[3px] xl:border-t-0"
                 aria-hidden="true"
                 data-testid="view-readout"
               >
@@ -259,6 +300,14 @@ export default function Booth() {
               ) : (
                 fallback
               )}
+              {tourLive && manualOn && (
+                <p
+                  className="absolute left-2 top-2 max-w-[36ch] bg-paper px-2 py-1 text-14"
+                  data-testid="manual-note"
+                >
+                  {BOOTH.manualNote}
+                </p>
+              )}
               {current && (
                 <p
                   className="absolute bottom-2 left-2 flex flex-wrap items-center gap-2"
@@ -301,7 +350,7 @@ export default function Booth() {
       </div>
 
       {/* ASSEMBLED / EXPLODED: one button, one pixel swap. */}
-      <div className="mt-8 grid gap-2 md:grid-cols-12 md:gap-4">
+      <div className="mt-8 grid gap-2 md:grid-cols-12 md:gap-x-3">
         <div className="md:col-span-8">
           <PixelSwap
             state={drawing}
@@ -350,7 +399,7 @@ export default function Booth() {
 
       {/* The parts catalogue and its detail panel. Selecting a cell highlights the part on the model
           and opens its detail beside the grid (below it on phones). */}
-      <div className="mt-8 grid gap-4 lg:grid-cols-12 lg:items-start">
+      <div className="mt-8 grid gap-4 lg:grid-cols-12 lg:items-start lg:gap-x-3">
         <ul
           className="grid grid-cols-2 border-l border-t border-black md:grid-cols-3 lg:col-span-8"
           data-testid="parts-catalogue"
@@ -359,67 +408,72 @@ export default function Booth() {
           {parts.map((part) => {
             const on = manualOn && manual === part.id;
             return (
-              <li key={part.id} className="relative border-b border-r border-black bg-white">
-                <button
-                  type="button"
-                  className={`block w-full p-3 text-left hover:outline hover:outline-[3px] hover:-outline-offset-[3px] hover:outline-black ${on ? 'outline outline-[4px] -outline-offset-[4px] outline-green' : ''}`}
-                  aria-pressed={on}
-                  onClick={() => onSelect(on ? null : part.id)}
-                  onMouseEnter={() => setHovered(part.id)}
-                  onMouseLeave={() => setHovered(null)}
-                  onFocus={() => setHovered(part.id)}
-                  onBlur={() => setHovered(null)}
-                  data-testid={`part-${part.id}`}
-                >
-                  <span className="flex items-start justify-between">
-                    <LabelBlock colour={on ? 'green' : 'black'}>{part.number}</LabelBlock>
-                  </span>
-                  <img
-                    src={partImage(part.image)}
-                    alt=""
-                    width={800}
-                    height={800}
-                    loading="lazy"
-                    decoding="async"
-                    className="mx-auto mt-2 aspect-square w-3/4 object-contain"
-                  />
-                  <span className="ks-block mt-2 block text-16">{part.name}</span>
-                  <span className="ks-block mt-1 block text-12">{part.purpose}</span>
-                </button>
-              </li>
+              <Fragment key={part.id}>
+                <li className="relative border-b border-r border-black bg-white">
+                  {/* One font in the whole control: Helvetica, since the purpose line is small. */}
+                  <button
+                    type="button"
+                    className={`block w-full p-3 text-left hover:outline hover:outline-[3px] hover:-outline-offset-[3px] hover:outline-black ${on ? 'outline outline-[4px] -outline-offset-[4px] outline-green' : ''}`}
+                    aria-pressed={on}
+                    onClick={() => onSelect(on ? null : part.id)}
+                    onMouseEnter={() => setHovered(part.id)}
+                    onMouseLeave={() => setHovered(null)}
+                    onFocus={() => setHovered(part.id)}
+                    onBlur={() => setHovered(null)}
+                    data-testid={`part-${part.id}`}
+                  >
+                    <span
+                      className={`inline-block px-2 py-1 text-14 font-bold leading-none text-white ${on ? 'bg-green' : 'bg-black'}`}
+                    >
+                      {part.number}
+                    </span>
+                    <img
+                      src={partImage(part.image)}
+                      alt=""
+                      width={800}
+                      height={800}
+                      loading="lazy"
+                      decoding="async"
+                      className="mx-auto mt-2 aspect-square w-3/4 object-contain"
+                    />
+                    <span className="mt-2 block text-16 font-bold">{part.name}</span>
+                    <span className="mt-1 block text-14">{part.purpose}</span>
+                  </button>
+                </li>
+                {/* Below 1024 px the detail opens right after the chosen part. */}
+                {!wide && on && detail && (
+                  <li className="col-span-2 border-b border-r border-black bg-white p-3 md:col-span-3">
+                    <PartDetail part={detail} ref={detailRef} />
+                  </li>
+                )}
+              </Fragment>
             );
           })}
         </ul>
-        <div
-          className="border-[3px] border-black bg-white p-4 lg:sticky lg:top-[88px] lg:col-span-4"
-          aria-live="polite"
-          data-testid="part-detail"
-        >
-          <div ref={detailRef}>
+        {!wide && (
+          <p className="sr-only" aria-live="polite">
+            {detail ? `${detail.name}: ${detail.purpose}` : ''}
+          </p>
+        )}
+        {wide && (
+          <div
+            className="border-[3px] border-black bg-white p-4 lg:sticky lg:top-[88px] lg:col-span-4"
+            aria-live="polite"
+            data-testid="part-detail"
+          >
             {detail ? (
-              <>
-                <LabelBlock colour="green">{detail.number}</LabelBlock>
-                <img
-                  src={partImage(detail.image)}
-                  alt=""
-                  width={800}
-                  height={800}
-                  className="mx-auto my-4 aspect-square w-2/3 object-contain"
-                />
-                <p className="ks-block text-28">{detail.name}</p>
-                <p className="ks-block mt-1 text-16">{detail.purpose}</p>
-              </>
+              <PartDetail part={detail} ref={detailRef} />
             ) : (
               <p className="ks-block flex aspect-square items-center justify-center text-20">
                 {BOOTH.detailEmpty}
               </p>
             )}
           </div>
-        </div>
+        )}
       </div>
 
       {/* The dimensions and the spec strip. */}
-      <div className="mt-8 grid gap-4 md:grid-cols-12 md:items-start">
+      <div className="mt-8 grid gap-4 md:grid-cols-12 md:items-start md:gap-x-3">
         <div className="ks-grid-ground border-[3px] border-black md:col-span-7">
           {BOOTH_DIMENSIONS ? (
             <img
@@ -442,7 +496,7 @@ export default function Booth() {
         >
           {BOOTH.specs.map((x) => (
             <div key={x.label} className="flex flex-col-reverse border-b border-black pb-3">
-              <dt className="mt-2 text-12">{x.label}</dt>
+              <dt className="mt-2 font-sans text-14 normal-case tracking-normal">{x.label}</dt>
               <dd className="flex items-end gap-1 leading-none">
                 <span className="text-[clamp(28px,3.2vw,48px)]">{x.value}</span>
                 {x.unit && <span className="mb-[0.15em] text-[clamp(14px,1.4vw,20px)]">{x.unit}</span>}
@@ -452,5 +506,36 @@ export default function Booth() {
         </dl>
       </div>
     </Section>
+  );
+}
+
+/** A part's detail: its number, drawing, name and purpose. */
+const PartDetail = forwardRef<HTMLDivElement, { part: CataloguePart }>(function PartDetail({ part }, ref) {
+  return (
+    <div ref={ref} data-testid={`detail-${part.id}`}>
+      <LabelBlock colour="green">{part.number}</LabelBlock>
+      <img
+        src={partImage(part.image)}
+        alt=""
+        width={800}
+        height={800}
+        className="mx-auto my-4 aspect-square w-2/3 max-w-[280px] object-contain"
+      />
+      <p className="ks-block text-28">{part.name}</p>
+      <p className="mt-1 text-16">{part.purpose}</p>
+    </div>
+  );
+});
+
+/** True on screens at least 1024 px wide, following resizes. */
+function useWide(): boolean {
+  return useSyncExternalStore(
+    (l) => {
+      const mq = window.matchMedia('(min-width: 1024px)');
+      mq.addEventListener('change', l);
+      return () => mq.removeEventListener('change', l);
+    },
+    () => window.matchMedia('(min-width: 1024px)').matches,
+    () => true,
   );
 }

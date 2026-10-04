@@ -52,9 +52,9 @@ function usePlayOnce(ref: RefObject<HTMLElement | null>, seen: boolean, axis: 'x
     const tl = gsap.timeline();
     tl.to(bars, {
       ...(axis === 'y' ? { yPercent: 0 } : { xPercent: 0 }),
-      duration: 1.1,
-      ease: 'power3.out',
-      stagger: 0.12,
+      duration: 0.6,
+      ease: 'power2.out',
+      stagger: { amount: 0.12 },
       force3D: true,
     });
     numbers.forEach((n) => {
@@ -63,8 +63,8 @@ function usePlayOnce(ref: RefObject<HTMLElement | null>, seen: boolean, axis: 'x
         counter,
         {
           v: Number(n.dataset.count),
-          duration: 1.1,
-          ease: 'power3.out',
+          duration: 0.6,
+          ease: 'power2.out',
           onUpdate: () => (n.textContent = format(n, counter.v)),
         },
         0,

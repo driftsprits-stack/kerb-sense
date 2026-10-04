@@ -13,7 +13,7 @@ export default function Budget() {
       status={<StatusLabel>{BUDGET.statusLabel}</StatusLabel>}
       tight
     >
-      <div className="grid gap-4 md:grid-cols-12">
+      <div className="grid gap-4 md:grid-cols-12 md:gap-x-3">
         <div className="md:col-span-8">
           <BudgetBars />
         </div>

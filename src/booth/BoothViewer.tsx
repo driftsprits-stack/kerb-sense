@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState, type JSX, type RefObject } from '
 import { Color, Group, Mesh, MeshBasicMaterial, Vector3, type Material, type Object3D } from 'three';
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
 import { explodeOffset, nodeMoves, nodePart, partById_ } from '../lib/parts';
-import { VIEWS, shortestAngle, type ViewName } from '../lib/views';
+import { VIEWS, power2InOut, shortestAngle, type ViewName } from '../lib/views';
 
 // The booth, drawn flat. An orthographic camera, unlit MeshBasicMaterial in
 // black, white and green, a solid black outline, no lights, no environment,
@@ -192,9 +192,11 @@ function BoothModel({
   const meshes = useRef(new Map<string, { mesh: Mesh; base: MeshBasicMaterial[] }[]>());
   const groups = useRef(new Map<string, { group: Group; base: Vector3 }>());
   const explodeT = useRef(0);
+  const move = useRef<{ view: ViewName; start: number; az: number; po: number; dAz: number } | null>(null);
   const [hovered, setHovered] = useState<{ part: string; point: Vector3 } | null>(null);
   const [scenePart, setScenePart] = useState<string | null>(null);
   const lastReport = useRef<CameraReport>({ azimuth: NaN, polar: NaN });
+  const lastReportAt = useRef(-1);
   const highlighted = scenePart ?? selected;
 
   // The mesh each hotspot follows. The buttons live in a DOM overlay
@@ -260,29 +262,46 @@ function BoothModel({
 
     const ctrl = controls.current;
     if (!ctrl) return;
-    let goal: { azimuth: number; polar: number } | null = null;
-    if (driving) goal = { azimuth: sceneDrive?.azimuth ?? 0, polar: sceneDrive?.polar ?? Math.PI / 2 };
-    else if (view) goal = VIEWS[view];
-    if (goal) {
-      const az = ctrl.getAzimuthalAngle();
-      const po = ctrl.getPolarAngle();
-      const dAz = shortestAngle(az, goal.azimuth);
-      const dPo = goal.polar - po;
-      const k = reduced || driving ? 1 : Math.min(1, delta * 8);
-      const nextAz = az + dAz * k;
-      const nextPo = po + dPo * k;
-      ctrl.minAzimuthAngle = nextAz;
-      ctrl.maxAzimuthAngle = nextAz;
-      ctrl.minPolarAngle = nextPo;
-      ctrl.maxPolarAngle = nextPo;
+    let next: { azimuth: number; polar: number } | null = null;
+    if (driving) {
+      // The scroll owns the camera: follow it exactly, no lag.
+      move.current = null;
+      next = { azimuth: sceneDrive?.azimuth ?? 0, polar: sceneDrive?.polar ?? Math.PI / 2 };
+    } else if (view) {
+      // A preset: one 300 ms power2.inOut move from wherever the camera is.
+      // A new choice starts a new move from the current angles.
+      const goal = VIEWS[view];
+      const now = state.clock.elapsedTime;
+      if (!move.current || move.current.view !== view) {
+        const az = ctrl.getAzimuthalAngle();
+        move.current = {
+          view,
+          start: now,
+          az,
+          po: ctrl.getPolarAngle(),
+          dAz: shortestAngle(az, goal.azimuth),
+        };
+      }
+      const m = move.current;
+      const t = reduced ? 1 : Math.min(1, (now - m.start) / 0.3);
+      const k = power2InOut(t);
+      next = { azimuth: m.az + m.dAz * k, polar: m.po + (goal.polar - m.po) * k };
+      if (t >= 1) {
+        move.current = null;
+        onViewReached();
+      }
+    }
+    if (next) {
+      ctrl.minAzimuthAngle = next.azimuth;
+      ctrl.maxAzimuthAngle = next.azimuth;
+      ctrl.minPolarAngle = next.polar;
+      ctrl.maxPolarAngle = next.polar;
       ctrl.update();
       ctrl.minAzimuthAngle = -Infinity;
       ctrl.maxAzimuthAngle = Infinity;
       ctrl.minPolarAngle = 0;
       ctrl.maxPolarAngle = Math.PI;
-      if (!driving && Math.abs(dAz) < 0.002 && Math.abs(dPo) < 0.002) onViewReached();
     }
-    // Report the camera when it moves, rounded so the report is quiet.
     // Each "+" follows its part on screen (also while exploded) and shows
     // only when the part faces the camera.
     const toCamera = state.camera.position.clone().sub(TARGET).normalize();
@@ -298,13 +317,20 @@ function BoothModel({
       const y = ((1 - p.y) / 2) * state.size.height;
       el.style.transform = `translate(${Math.round(x)}px, ${Math.round(y)}px) translate(-50%, -50%)`;
     }
-    const report = {
-      azimuth: Math.round(ctrl.getAzimuthalAngle() * 100) / 100,
-      polar: Math.round(ctrl.getPolarAngle() * 100) / 100,
-    };
-    if (report.azimuth !== lastReport.current.azimuth || report.polar !== lastReport.current.polar) {
-      lastReport.current = report;
-      onCamera?.(report);
+    // Report the camera to the page at most every 100 ms, and only when the
+    // whole-degree readout would change, so the page does not re-render on
+    // every frame. The camera itself never waits for this.
+    const deg = (r: number) => Math.round((r * 180) / Math.PI);
+    const az = ctrl.getAzimuthalAngle();
+    const po = ctrl.getPolarAngle();
+    const now = state.clock.elapsedTime;
+    if (
+      now - lastReportAt.current >= 0.1 &&
+      (deg(az) !== deg(lastReport.current.azimuth) || deg(po) !== deg(lastReport.current.polar))
+    ) {
+      lastReportAt.current = now;
+      lastReport.current = { azimuth: az, polar: po };
+      onCamera?.({ azimuth: Math.round(az * 100) / 100, polar: Math.round(po * 100) / 100 });
     }
   });
 
@@ -377,7 +403,19 @@ function Ready({ onReady }: { onReady?: (() => void) | undefined }) {
 
 export default function BoothViewer({ canvasLabel, onReady, ...props }: BoothViewerProps) {
   const hotspotEls = useRef(new Map<string, HTMLElement>());
+  const overlay = useRef<HTMLDivElement>(null);
   const { selected, onSelect, interactive } = props;
+  // Draw frames only while the stage is on screen; the loop stops otherwise.
+  const [onScreen, setOnScreen] = useState(true);
+  useEffect(() => {
+    const el = overlay.current;
+    if (!el) return;
+    const io = new IntersectionObserver((entries) => setOnScreen(entries.some((e) => e.isIntersecting)), {
+      rootMargin: '100px 0px',
+    });
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
   return (
     <>
       <Canvas
@@ -385,7 +423,7 @@ export default function BoothViewer({ canvasLabel, onReady, ...props }: BoothVie
         camera={{ position: [0, 0.33, 3], zoom: 600, near: 0.01, far: 20 }}
         dpr={[1, 2]}
         gl={{ antialias: true, alpha: true, powerPreference: 'low-power' }}
-        frameloop="always"
+        frameloop={onScreen ? 'always' : 'never'}
         style={{ touchAction: 'pan-y', width: '100%', height: '100%' }}
         aria-label={canvasLabel}
         role="img"
@@ -395,7 +433,7 @@ export default function BoothViewer({ canvasLabel, onReady, ...props }: BoothVie
         <Ready onReady={onReady} />
       </Canvas>
       {/* Hotspots, after Apple's "closer look". Hidden until the frame loop places them. */}
-      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+      <div ref={overlay} className="pointer-events-none absolute inset-0 overflow-hidden">
         {HOTSPOTS.map((h) => {
           const on = selected === h.part;
           return (

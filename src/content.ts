@@ -36,9 +36,11 @@ export const SECTIONS = [
 export type SectionId = (typeof SECTIONS)[number]['id'];
 
 export const HERO = {
-  body: 'A road-safety game and arcade booth for Singapore students.',
+  body: 'A free browser road-safety game for Singapore students, with a school arcade booth planned.',
   play: 'PLAY',
   booth: 'BOOTH',
+  pauseMotion: 'Pause the moving stripes and the game clip',
+  resumeMotion: 'Play the moving stripes and the game clip',
   boothAlt:
     'The Kerb Sense arcade booth design, seen from the front left: a white tabletop cabinet with a black marquee, a screen, four green buttons and a joystick.',
 } as const;
@@ -55,7 +57,7 @@ export const PROBLEM = {
     years: ['2024', '2025'],
   },
   source: 'Source: Singapore Police Force, Annual Road Traffic Situation 2025',
-  caveat: 'Not caused by phones or students',
+  caveat: 'These figures do not identify phone use or student involvement.',
 } as const;
 
 export const BOOTH = {
@@ -94,6 +96,7 @@ export const BOOTH = {
     },
   ],
   detailEmpty: 'SELECT A PART',
+  manualNote: 'Manual view. Scrolling to the next explanation resumes the tour.',
   // The spec strip: one big number, its unit and a short label each, like a
   // product spec sheet. From the proposal and the Blender model.
   specs: [
@@ -134,6 +137,7 @@ export const PLAN = {
     { month: 6, what: 'Report, toolkit, handover' },
   ],
   targetLabel: 'TARGET',
+  targetsLabel: 'TARGETS',
   atLeast: 'AT LEAST',
   // One big value, a short label and one line of context (shortlist pick 28).
   // Facts from the proposal, section 6.
@@ -179,14 +183,14 @@ export const PLAN = {
 } as const;
 
 export const SAFETY = {
-  body: 'The website and the game keep nothing. Play happens only in school.',
+  body: 'The website and the game keep nothing. School booth sessions are planned.',
   items: [
     { id: 'accounts', label: 'NO ACCOUNTS', line: 'No sign-up, no profiles.' },
     { id: 'storage', label: 'NOTHING STORED', line: 'No cookies, no analytics, no data.' },
     {
       id: 'stationary',
       label: 'PLAYED ONLY WHEN STATIONARY',
-      line: 'At a booth, with school staff present.',
+      line: 'Play only while stationary, away from traffic.',
     },
   ],
 } as const;

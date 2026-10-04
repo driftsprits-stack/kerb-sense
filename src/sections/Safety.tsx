@@ -10,13 +10,13 @@ export default function Safety() {
         {SAFETY.items.map((item) => (
           <li
             key={item.id}
-            className="flex items-center gap-3 border-[3px] border-black bg-white p-3 md:flex-col md:items-start"
+            className="grid grid-cols-[72px_minmax(0,1fr)] items-center gap-2 border-[3px] border-black bg-white p-2 md:flex md:flex-col md:items-start md:gap-3 md:p-3"
           >
-            <div className="h-20 w-20 shrink-0 border border-black">
+            <div className="h-9 w-9 shrink-0 border border-black md:h-12 md:w-12">
               <SafetyIcon id={item.id} />
             </div>
-            <div>
-              <p className="ks-block text-16">{item.label}</p>
+            <div className="min-w-0">
+              <p className="ks-block text-18">{item.label}</p>
               <p className="mt-1 text-14">{item.line}</p>
             </div>
           </li>

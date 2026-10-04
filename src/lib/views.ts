@@ -5,7 +5,7 @@ export type ViewName = 'front' | 'side' | 'back' | 'top';
 export interface ViewAngles {
   /** Rotation around the vertical axis, in radians. */
   azimuth: number;
-  /** Angle above the ground plane, in radians. */
+  /** Angle from the vertical axis, in radians: pi/2 is level, near 0 is overhead. */
   polar: number;
 }
 
@@ -55,29 +55,44 @@ export interface TourPose extends ViewAngles {
   explode: number;
 }
 
-// The scroll tour, as keyframes over its progress p in [0, 1]: from the
-// three-quarter angle to the front (screen), down to the top (controls),
-// round to a raised back three-quarter (rear access), then the parts move
+// The scroll tour, as keyframes over its progress p in [0, 1] (Astra's review,
+// 4 October 2026): the three-quarter angle turns to the front and holds
+// (screen), lifts to the top and holds (controls), turns to a raised back
+// three-quarter and holds (rear access), then the parts move apart and stay
 // apart. The rear parts move along the depth axis, so a straight back view
-// would hide the explode.
+// would hide the explode. Polar is from the vertical: pi/2 is level.
 export const BACK_THREE_QUARTER = { azimuth: Math.PI * 0.75, polar: 1.15 };
+const LEVEL = Math.PI / 2;
+const TOP = 0.35;
 const TOUR_KEYS: readonly (TourPose & { p: number })[] = [
-  { p: 0, azimuth: THREE_QUARTER, polar: Math.PI / 2, explode: 0 },
-  { p: 0.25, azimuth: 0, polar: Math.PI / 2, explode: 0 },
-  { p: 0.42, azimuth: 0, polar: 0.35, explode: 0 },
-  { p: 0.58, azimuth: 0, polar: 0.35, explode: 0 },
-  { p: 0.75, ...BACK_THREE_QUARTER, explode: 0 },
+  { p: 0, azimuth: THREE_QUARTER, polar: LEVEL, explode: 0 },
+  { p: 0.12, azimuth: 0, polar: LEVEL, explode: 0 },
+  { p: 0.28, azimuth: 0, polar: LEVEL, explode: 0 },
+  { p: 0.42, azimuth: 0, polar: TOP, explode: 0 },
+  { p: 0.59, azimuth: 0, polar: TOP, explode: 0 },
+  { p: 0.72, ...BACK_THREE_QUARTER, explode: 0 },
+  { p: 0.78, ...BACK_THREE_QUARTER, explode: 0 },
+  { p: 0.92, ...BACK_THREE_QUARTER, explode: 1 },
   { p: 1, ...BACK_THREE_QUARTER, explode: 1 },
 ];
 
-/** The camera and explode state for a point in the scroll tour. Linear between keyframes. */
+/** GSAP's power2.inOut, written out so this file stays free of libraries. */
+export function power2InOut(t: number): number {
+  return t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2;
+}
+
+/**
+ * The camera and explode state for a point in the scroll tour. Each moving
+ * segment eases (power2.inOut) on its own fraction; holds stay still. The
+ * same p always gives the same pose, in either scroll direction.
+ */
 export function tourPose(p: number): TourPose {
   const t = Math.min(1, Math.max(0, p));
   let i = 1;
   while (i < TOUR_KEYS.length - 1 && (TOUR_KEYS[i] as { p: number }).p < t) i += 1;
   const a = TOUR_KEYS[i - 1] as TourPose & { p: number };
   const b = TOUR_KEYS[i] as TourPose & { p: number };
-  const k = b.p === a.p ? 1 : (t - a.p) / (b.p - a.p);
+  const k = b.p === a.p ? 1 : power2InOut((t - a.p) / (b.p - a.p));
   const mix = (x: number, y: number) => x + (y - x) * k;
   return {
     azimuth: mix(a.azimuth, b.azimuth),

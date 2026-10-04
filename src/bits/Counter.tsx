@@ -48,16 +48,21 @@ export default function Counter({ value, fontSize = 96, className = '' }: Counte
   useEffect(() => {
     const el = ref.current;
     if (!el || !started) return;
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     const columns = el.querySelectorAll<HTMLElement>('[data-digit]');
+    const final = (i: number) => -Number(columns[i]?.dataset.digit ?? 0) * 10;
+    // Reduced motion, even if switched on after load: show the final digits.
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      gsap.set(columns, { yPercent: final });
+      return;
+    }
     const tween = gsap.fromTo(
       columns,
       { yPercent: 0 },
       {
-        yPercent: (i: number) => -Number(columns[i]?.dataset.digit ?? 0) * 10,
-        duration: 1.2,
-        ease: 'power3.out',
-        stagger: 0.05,
+        yPercent: final,
+        duration: 0.6,
+        ease: 'power2.out',
+        stagger: { amount: 0.12 },
         force3D: true,
       },
     );

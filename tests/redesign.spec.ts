@@ -11,6 +11,19 @@ const tourOn = (page: Page) => {
   return (v?.width ?? 0) >= 1024 && (v?.height ?? 0) >= 700;
 };
 
+/** Scrolls so the booth tour is at progress p (0 to 1; above 1 is past the end). */
+async function scrollToTourProgress(page: Page, p: number) {
+  await page.evaluate((progress) => {
+    const list = document.querySelector('[data-testid="booth-tour"]') as HTMLElement;
+    const last = list.querySelector('[data-tour="2"]') as HTMLElement;
+    const mid = window.innerHeight / 2;
+    const start = list.getBoundingClientRect().top + window.scrollY - mid;
+    const end = last.getBoundingClientRect().bottom + window.scrollY - mid;
+    window.scrollTo(0, start + (end - start) * progress);
+  }, p);
+  await page.waitForTimeout(600);
+}
+
 async function scrollToSelector(page: Page, selector: string, offset = 0) {
   await page.evaluate(
     ([sel, off]) => {
@@ -145,14 +158,45 @@ test.describe('redesign', () => {
   }) => {
     test.skip(!tourOn(page), 'The tour runs on screens at least 1024 by 700 px.');
     await page.goto(HOME);
-    await scrollToSelector(page, '[data-tour="1"]', 300);
-    await expect(page.getByTestId('view-top')).toHaveAttribute('aria-pressed', 'true');
-    await scrollToSelector(page, '[data-tour="2"]', 300);
-    await expect(page.getByTestId('view-back')).toHaveAttribute('aria-pressed', 'true');
+    // A view button reads as pressed only while the camera is at that preset:
+    // FRONT in the front hold; none while turning, or at the raised top and rear holds.
+    await scrollToTourProgress(page, 0.2);
+    await expect(page.getByTestId('view-front')).toHaveAttribute('aria-pressed', 'true');
+    for (const p of [0.35, 0.5, 0.75]) {
+      await scrollToTourProgress(page, p);
+      await expect(page.locator('[data-testid^="view-"][aria-pressed="true"]')).toHaveCount(0);
+    }
+    // A manual choice wins, says so, and holds while the visitor stays in the block.
+    await scrollToTourProgress(page, 0.5);
     await page.getByTestId('view-side').click();
+    await expect(page.getByTestId('manual-note')).toBeVisible();
     await page.mouse.wheel(0, 40);
     await page.waitForTimeout(400);
     await expect(page.getByTestId('view-side')).toHaveAttribute('aria-pressed', 'true');
+    // The next explanation hands control back to the tour.
+    await scrollToTourProgress(page, 0.2);
+    await expect(page.getByTestId('manual-note')).toHaveCount(0);
+  });
+
+  test('the booth keeps its final tour pose after the tour ends (review finding 5)', async ({ page }) => {
+    test.skip(!tourOn(page), 'The tour runs on screens at least 1024 by 700 px.');
+    await page.goto(HOME);
+    if ((await page.getByTestId('booth-canvas').count()) === 0) return;
+    const stage = page.getByTestId('booth-stage');
+    await scrollToTourProgress(page, 0.98);
+    await expect
+      .poll(async () => Number(await stage.getAttribute('data-azimuth')), { timeout: 5000 })
+      .toBeCloseTo(2.36, 1);
+    // Scroll a little past the end: the raised rear view stays.
+    await scrollToTourProgress(page, 1.15);
+    await page.waitForTimeout(800);
+    expect(Number(await stage.getAttribute('data-azimuth'))).toBeCloseTo(2.36, 1);
+    expect(Number(await stage.getAttribute('data-polar'))).toBeCloseTo(1.15, 1);
+    // Back into the tour, the pose follows the scroll again.
+    await scrollToTourProgress(page, 0.5);
+    await expect
+      .poll(async () => Number(await stage.getAttribute('data-polar')), { timeout: 5000 })
+      .toBeCloseTo(0.35, 1);
   });
 
   test('selecting a part opens its detail and selecting it again closes it (A7)', async ({ page }) => {
@@ -161,12 +205,21 @@ test.describe('redesign', () => {
     const joystick = page.getByTestId('part-joystick');
     await joystick.click();
     await expect(joystick).toHaveAttribute('aria-pressed', 'true');
-    await expect(page.getByTestId('part-detail')).toContainText('JOYSTICK');
-    await expect(page.getByTestId('part-detail')).toContainText('MOVES THE PLAYER');
+    const detail = page.getByTestId('detail-joystick');
+    await expect(detail).toBeVisible();
+    await expect(detail).toContainText('JOYSTICK');
+    await expect(detail).toContainText('MOVES THE PLAYER');
+    const wide = (page.viewportSize()?.width ?? 0) >= 1024;
+    if (!wide) {
+      // Below 1024 px the detail opens right below the chosen part, in view.
+      const [cell, box] = await Promise.all([joystick.boundingBox(), detail.boundingBox()]);
+      expect((box?.y ?? 0) >= (cell?.y ?? 0) + (cell?.height ?? 0) - 1).toBe(true);
+    }
     await joystick.click();
     await expect(joystick).toHaveAttribute('aria-pressed', 'false');
-    await expect(page.getByTestId('part-detail')).toContainText('SELECT A PART');
-    await expect(page.getByTestId('parts-catalogue').locator('li')).toHaveCount(6);
+    if (wide) await expect(page.getByTestId('part-detail')).toContainText('SELECT A PART');
+    else await expect(detail).toHaveCount(0);
+    await expect(page.getByTestId('parts-catalogue').locator('button')).toHaveCount(6);
   });
 
   test('the crossing dial sits below the step and follows the Singapore order', async ({ page }) => {
@@ -436,9 +489,56 @@ test.describe('redesign', () => {
     await expect(page.getByTestId('hotspot-latches')).toBeHidden();
     await screen.click();
     await expect(screen).toHaveAttribute('aria-pressed', 'true');
-    await expect(page.getByTestId('part-detail')).toContainText('SCREEN GLASS');
+    await expect(page.getByTestId('detail-screen')).toContainText('SCREEN GLASS');
     await page.getByTestId('view-back').click();
     await expect(page.getByTestId('hotspot-latches')).toBeVisible({ timeout: 6000 });
     await expect(screen).toBeHidden();
   });
+
+  for (const width of [320, 375, 1024]) {
+    test(`nothing spills out of its box at ${width} px (review findings 1 to 4)`, async ({ browser }) => {
+      const context = await browser.newContext({ viewport: { width, height: 812 } });
+      const page = await context.newPage();
+      await page.goto(HOME);
+      const problems = await page.evaluate(() => {
+        const vw = document.documentElement.clientWidth;
+        const out: string[] = [];
+        const check = (el: Element, box: DOMRect, name: string) => {
+          const r = el.getBoundingClientRect();
+          if (r.width === 0) return;
+          if (r.left < box.left - 1 || r.right > box.right + 1)
+            out.push(`${name}: ${Math.round(r.left)}-${Math.round(r.right)}`);
+        };
+        const screen = new DOMRect(0, 0, vw, 1);
+        document
+          .querySelectorAll('[data-hero="copy"] a')
+          .forEach((a) => check(a, screen, `hero ${a.textContent}`));
+        document.querySelectorAll('main h2').forEach((h) => check(h, screen, `title ${h.textContent}`));
+        document.querySelectorAll('[data-testid="safety-list"] li').forEach((li) => {
+          const box = li.getBoundingClientRect();
+          li.querySelectorAll('p').forEach((p) => check(p, box, `safety ${p.textContent?.slice(0, 20)}`));
+        });
+        const bar = document.querySelector('[data-testid="view-group"]')?.parentElement;
+        if (bar) {
+          const box = bar.getBoundingClientRect();
+          bar.querySelectorAll('button').forEach((b) => check(b, box, `view ${b.textContent}`));
+          const readout = document.querySelector('[data-testid="view-readout"]')?.getBoundingClientRect();
+          if (readout && readout.width > 0) {
+            bar.querySelectorAll('button').forEach((b) => {
+              const r = b.getBoundingClientRect();
+              const overlap =
+                r.right > readout.left + 1 &&
+                r.left < readout.right - 1 &&
+                r.bottom > readout.top + 1 &&
+                r.top < readout.bottom - 1;
+              if (overlap) out.push(`readout covers ${b.textContent}`);
+            });
+          }
+        }
+        return out;
+      });
+      expect(problems).toEqual([]);
+      await context.close();
+    });
+  }
 });

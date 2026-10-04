@@ -42,7 +42,7 @@ body { background: #000000; color: #FFFFFF; position: relative; }
 <p class="kb title">KERB SENSE</p>
 <p class="kb play">PLAY FREE</p>
 <p class="line">Wait, and you get there first.</p>
-<p class="sub">A road-safety game and arcade booth for Singapore students.</p>
+<p class="sub">A free browser road-safety game for Singapore students, with a school arcade booth planned.</p>
 <img class="band" src="${stripes}" alt="">
 <img class="booth" src="${booth}" alt="">
 <p class="kb kana" lang="ja">カーブセンス</p>
