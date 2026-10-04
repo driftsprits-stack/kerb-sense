@@ -94,11 +94,15 @@ export const BOOTH = {
     },
   ],
   detailEmpty: 'SELECT A PART',
+  // The spec strip: one big number, its unit and a short label each, like a
+  // product spec sheet. From the proposal and the Blender model.
   specs: [
-    ['STATUS', 'DESIGNED'],
-    ['SIZE', '70 X 65 X 75 CM'],
-    ['MATERIAL', '12 MM MDF'],
-    ['CONTROLS', 'JOYSTICK + 4 BUTTONS'],
+    { value: '75', unit: 'CM', label: 'TALL' },
+    { value: '70 X 65', unit: 'CM', label: 'FOOTPRINT' },
+    { value: '24', unit: 'IN', label: 'SCREEN' },
+    { value: '12', unit: 'MM', label: 'MDF BODY' },
+    { value: '4', unit: '+1', label: 'BUTTONS, JOYSTICK' },
+    { value: '3', unit: '', label: 'STATIONS PLANNED' },
   ],
 } as const;
 

@@ -119,6 +119,10 @@
     border: 0 solid;
     border-radius: 0 !important;
   }
+  /* The hidden attribute always wins over display utilities such as flex. */
+  [hidden]:where(:not([hidden='until-found'])) {
+    display: none !important;
+  }
   html {
     background: var(--ks-paper);
     color: var(--ks-black);

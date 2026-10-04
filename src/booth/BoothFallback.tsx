@@ -84,7 +84,7 @@ export default function BoothFallback({
           </li>
         ))}
       </ul>
-      <span className="sr-only">{BOOTH.specs.map(([k, v]) => `${k}: ${v}`).join('. ')}</span>
+      <span className="sr-only">{BOOTH.specs.map((x) => `${x.label}: ${x.value} ${x.unit}`).join('. ')}</span>
     </figure>
   );
 }

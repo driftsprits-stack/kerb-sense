@@ -30,7 +30,7 @@ const BoothViewer = lazy(() => import('../booth/BoothViewer'));
 
 // The booth: a sticky 3D viewer beside three short explanations, the view
 // buttons, the ASSEMBLED / EXPLODED drawing, the six-part catalogue with a
-// detail panel, the dimension drawing and one row of specs.
+// detail panel, the dimension drawing and the spec strip.
 //
 // One source of truth for the highlighted part: the visitor's own choice
 // (manual) wins. Scrolling to a new explanation hands control back to the
@@ -215,7 +215,7 @@ export default function Booth() {
             </div>
             <div
               ref={stageRef}
-              className="relative aspect-[4/3] w-full border-[3px] border-black bg-paper"
+              className="relative aspect-[4/3] w-full bg-paper"
               data-testid="booth-stage"
               data-azimuth={camera.azimuth}
               data-polar={camera.polar}
@@ -418,7 +418,7 @@ export default function Booth() {
         </div>
       </div>
 
-      {/* The dimensions and one row of specs. */}
+      {/* The dimensions and the spec strip. */}
       <div className="mt-8 grid gap-4 md:grid-cols-12 md:items-start">
         <div className="ks-grid-ground border-[3px] border-black md:col-span-7">
           {BOOTH_DIMENSIONS ? (
@@ -435,14 +435,18 @@ export default function Booth() {
             <DimensionDrawing title={BOOTH.dimensionsAlt} />
           )}
         </div>
+        {/* The spec strip, like a product spec sheet: a big number, its unit and a short label. */}
         <dl
-          className="ks-block grid grid-cols-2 gap-px border-[3px] border-black bg-black md:col-span-5 md:grid-cols-1"
+          className="ks-block grid grid-cols-2 gap-x-4 gap-y-5 border-t-[3px] border-black pt-4 md:col-span-5"
           data-testid="spec-row"
         >
-          {BOOTH.specs.map(([k, v]) => (
-            <div key={k} className="bg-paper p-3">
-              <dt className="text-12">{k}</dt>
-              <dd className="mt-1 text-16">{v}</dd>
+          {BOOTH.specs.map((x) => (
+            <div key={x.label} className="flex flex-col-reverse border-b border-black pb-3">
+              <dt className="mt-2 text-12">{x.label}</dt>
+              <dd className="flex items-end gap-1 leading-none">
+                <span className="text-[clamp(28px,3.2vw,48px)]">{x.value}</span>
+                {x.unit && <span className="mb-[0.15em] text-[clamp(14px,1.4vw,20px)]">{x.unit}</span>}
+              </dd>
             </div>
           ))}
         </dl>

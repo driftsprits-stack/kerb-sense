@@ -420,4 +420,25 @@ test.describe('redesign', () => {
     await expect(p2.getByTestId('problem-chart').locator('[data-count="27"]')).toHaveText('27');
     await still.close();
   });
+
+  test('the booth is shown like a product: hotspots open a part, and the specs read as big numbers', async ({
+    page,
+  }) => {
+    await page.goto(HOME);
+    await scrollToSelector(page, '[data-testid="booth-scene"]', 100);
+    await expect(page.getByTestId('spec-row').locator('dd')).toHaveCount(6);
+    await expect(page.getByTestId('spec-row')).toContainText('75');
+    if ((await page.getByTestId('booth-canvas').count()) === 0) return;
+    await page.getByTestId('view-front').click();
+    const screen = page.getByTestId('hotspot-screen');
+    await expect(screen).toBeVisible({ timeout: 6000 });
+    // A part that faces away has no hotspot, and it leaves the tab order.
+    await expect(page.getByTestId('hotspot-latches')).toBeHidden();
+    await screen.click();
+    await expect(screen).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByTestId('part-detail')).toContainText('SCREEN GLASS');
+    await page.getByTestId('view-back').click();
+    await expect(page.getByTestId('hotspot-latches')).toBeVisible({ timeout: 6000 });
+    await expect(screen).toBeHidden();
+  });
 });

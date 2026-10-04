@@ -49,15 +49,34 @@ export interface CameraReport {
   polar: number;
 }
 
+/** The centre of a mesh's geometry, in its own space. */
+function centreOf(mesh: Mesh): Vector3 {
+  const geo = mesh.geometry;
+  if (!geo.boundingBox) geo.computeBoundingBox();
+  return geo.boundingBox?.getCenter(new Vector3()) ?? new Vector3();
+}
+
 function flatMaterial(source: Material | Material[]): MeshBasicMaterial[] {
   return (Array.isArray(source) ? source : [source]).map(
     (m) => new MeshBasicMaterial({ color: new Color(PALETTE[m.name] ?? '#FFFFFF'), toneMapped: false }),
   );
 }
 
+// Hotspots, after Apple's "closer look": a "+" on three parts that opens the
+// part's detail. Each faces one way; it hides (and leaves the tab order) when
+// the camera is behind it, so a "+" never shows through the cabinet.
+const HOTSPOTS: { node: string; part: string; facing: [number, number, number] }[] = [
+  { node: 'screen_glass', part: 'screen', facing: [0, 0.3, 1] },
+  // The joystick group has no mesh of its own; its shaft carries the "+".
+  { node: 'joystick_shaft', part: 'joystick', facing: [0.2, 1, 0.5] },
+  { node: 'latch_left', part: 'latches', facing: [0, 0.2, -1] },
+];
+const HOTSPOT_NODES = new Set(HOTSPOTS.map((h) => h.node));
+
 interface NodeProps {
   object: Object3D;
   registerGroup: (name: string, group: Group, base: Vector3) => void;
+  registerHotspot: (name: string, mesh: Mesh) => void;
   registerMesh: (part: string, mesh: Mesh, base: MeshBasicMaterial[]) => void;
   onOver: (part: string, e: ThreeEvent<PointerEvent>) => void;
   onOut: () => void;
@@ -73,6 +92,7 @@ interface NodeProps {
 function Node({
   object,
   registerGroup,
+  registerHotspot,
   registerMesh,
   onOver,
   onOut,
@@ -90,6 +110,7 @@ function Node({
       key={child.uuid}
       object={child}
       registerGroup={registerGroup}
+      registerHotspot={registerHotspot}
       registerMesh={registerMesh}
       onOver={onOver}
       onOut={onOut}
@@ -118,7 +139,11 @@ function Node({
         <mesh
           geometry={mesh.geometry}
           material={material}
-          ref={(m) => m && registerMesh(part, m, base)}
+          ref={(m) => {
+            if (!m) return;
+            registerMesh(part, m, base);
+            if (HOTSPOT_NODES.has(object.name)) registerHotspot(object.name, m);
+          }}
           onPointerOver={(e) => onOver(part, e)}
           onPointerOut={onOut}
           onClick={(e) => onClick(part, e)}
@@ -146,6 +171,8 @@ export interface BoothProps {
   interactive: boolean;
   drive?: RefObject<SceneDrive> | undefined;
   onCamera?: ((report: CameraReport) => void) | undefined;
+  /** The hotspot buttons, by node name, drawn over the canvas. */
+  hotspotEls?: RefObject<Map<string, HTMLElement>> | undefined;
 }
 
 function BoothModel({
@@ -158,6 +185,7 @@ function BoothModel({
   interactive,
   drive,
   onCamera,
+  hotspotEls,
 }: BoothProps) {
   const { scene } = useGLTF(MODEL_URL);
   const controls = useRef<OrbitControlsImpl>(null);
@@ -169,6 +197,12 @@ function BoothModel({
   const lastReport = useRef<CameraReport>({ azimuth: NaN, polar: NaN });
   const highlighted = scenePart ?? selected;
 
+  // The mesh each hotspot follows. The buttons live in a DOM overlay
+  // (BoothViewer); the frame loop moves them.
+  const hotspotMesh = useRef(new Map<string, Mesh>());
+  const registerHotspot = (name: string, mesh: Mesh) => {
+    hotspotMesh.current.set(name, mesh);
+  };
   const registerGroup = (name: string, group: Group, base: Vector3) => {
     if (!groups.current.has(name)) groups.current.set(name, { group, base: base.clone() });
   };
@@ -249,6 +283,21 @@ function BoothModel({
       if (!driving && Math.abs(dAz) < 0.002 && Math.abs(dPo) < 0.002) onViewReached();
     }
     // Report the camera when it moves, rounded so the report is quiet.
+    // Each "+" follows its part on screen (also while exploded) and shows
+    // only when the part faces the camera.
+    const toCamera = state.camera.position.clone().sub(TARGET).normalize();
+    for (const h of HOTSPOTS) {
+      const mesh = hotspotMesh.current.get(h.node);
+      const el = hotspotEls?.current.get(h.node);
+      if (!mesh || !el) continue;
+      const facing = new Vector3(...h.facing).normalize().dot(toCamera) > 0.2;
+      if (el.hidden === facing) el.hidden = !facing;
+      if (!facing) continue;
+      const p = mesh.localToWorld(centreOf(mesh)).project(state.camera);
+      const x = ((p.x + 1) / 2) * state.size.width;
+      const y = ((1 - p.y) / 2) * state.size.height;
+      el.style.transform = `translate(${Math.round(x)}px, ${Math.round(y)}px) translate(-50%, -50%)`;
+    }
     const report = {
       azimuth: Math.round(ctrl.getAzimuthalAngle() * 100) / 100,
       polar: Math.round(ctrl.getPolarAngle() * 100) / 100,
@@ -293,6 +342,7 @@ function BoothModel({
             key={child.uuid}
             object={child}
             registerGroup={registerGroup}
+            registerHotspot={registerHotspot}
             registerMesh={registerMesh}
             onOver={onOver}
             onOut={onOut}
@@ -326,21 +376,48 @@ function Ready({ onReady }: { onReady?: (() => void) | undefined }) {
 }
 
 export default function BoothViewer({ canvasLabel, onReady, ...props }: BoothViewerProps) {
+  const hotspotEls = useRef(new Map<string, HTMLElement>());
+  const { selected, onSelect, interactive } = props;
   return (
-    <Canvas
-      orthographic
-      camera={{ position: [0, 0.33, 3], zoom: 600, near: 0.01, far: 20 }}
-      dpr={[1, 2]}
-      gl={{ antialias: true, alpha: true, powerPreference: 'low-power' }}
-      frameloop="always"
-      style={{ touchAction: 'pan-y', width: '100%', height: '100%' }}
-      aria-label={canvasLabel}
-      role="img"
-      data-testid="booth-canvas"
-    >
-      <BoothModel {...props} />
-      <Ready onReady={onReady} />
-    </Canvas>
+    <>
+      <Canvas
+        orthographic
+        camera={{ position: [0, 0.33, 3], zoom: 600, near: 0.01, far: 20 }}
+        dpr={[1, 2]}
+        gl={{ antialias: true, alpha: true, powerPreference: 'low-power' }}
+        frameloop="always"
+        style={{ touchAction: 'pan-y', width: '100%', height: '100%' }}
+        aria-label={canvasLabel}
+        role="img"
+        data-testid="booth-canvas"
+      >
+        <BoothModel {...props} hotspotEls={hotspotEls} />
+        <Ready onReady={onReady} />
+      </Canvas>
+      {/* Hotspots, after Apple's "closer look". Hidden until the frame loop places them. */}
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        {HOTSPOTS.map((h) => {
+          const on = selected === h.part;
+          return (
+            <button
+              key={h.node}
+              ref={(el) => {
+                if (el) hotspotEls.current.set(h.node, el);
+              }}
+              type="button"
+              hidden
+              className={`ks-block pointer-events-auto absolute left-0 top-0 flex h-5 w-5 items-center justify-center border-2 border-white text-20 text-white ${on ? 'bg-green' : 'bg-black hover:bg-green'}`}
+              aria-label={`Show the ${(partById_(h.part)?.name ?? h.part).toLowerCase()}`}
+              aria-pressed={on}
+              onClick={() => interactive && onSelect(on ? null : h.part)}
+              data-testid={`hotspot-${h.part}`}
+            >
+              +
+            </button>
+          );
+        })}
+      </div>
+    </>
   );
 }
 
