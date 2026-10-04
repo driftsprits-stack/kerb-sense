@@ -130,13 +130,46 @@ export const PLAN = {
     { month: 6, what: 'Report, toolkit, handover' },
   ],
   targetLabel: 'TARGET',
+  atLeast: 'AT LEAST',
+  // One big value, a short label and one line of context (shortlist pick 28).
+  // Facts from the proposal, section 6.
   targets: [
-    { value: 900, label: 'STUDENTS' },
-    { value: 1500, label: 'GAME SESSIONS' },
-    { value: 20, label: 'AMBASSADORS' },
-    { value: 20, label: 'PERCENT LESS PHONE USE, AT LEAST' },
-    { value: 20, label: 'POINTS SAFER CROSSING, AT LEAST' },
-    { value: 75, label: 'PERCENT RECALL THE SEQUENCE, AT LEAST' },
+    { value: 900, unit: '', atLeast: false, label: 'STUDENTS', detail: 'In three schools over six months.' },
+    {
+      value: 1500,
+      unit: '',
+      atLeast: false,
+      label: 'GAME SESSIONS',
+      detail: 'Runs are short, so students play again.',
+    },
+    {
+      value: 20,
+      unit: '',
+      atLeast: false,
+      label: 'AMBASSADORS',
+      detail: 'At least 16 run a booth on their own.',
+    },
+    {
+      value: 20,
+      unit: '%',
+      atLeast: true,
+      label: 'LESS PHONE USE',
+      detail: 'Counted at the same crossings, before and after.',
+    },
+    {
+      value: 20,
+      unit: 'PT',
+      atLeast: true,
+      label: 'SAFER CROSSING',
+      detail: 'First run against the coached replay.',
+    },
+    {
+      value: 75,
+      unit: '%',
+      atLeast: true,
+      label: 'RECALL THE SEQUENCE',
+      detail: 'Of students who answer the exit question.',
+    },
   ],
   source: 'Source: the Kerb Sense proposal, sections 5 and 6',
 } as const;

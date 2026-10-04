@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Hero B: industrial catalogue | Kerb Sense exploration</title>
+    <link rel="stylesheet" href="shared.css" />
+    <style>
+      /* B. Industrial catalogue (teenage engineering product page): the booth
+         as a product in a ruled cell with numbered callouts and a spec strip. */
+      .hero {
+        display: grid;
+        gap: 24px;
+        padding: 24px 16px;
+      }
+      h1 {
+        font-family: 'Kerb Block';
+        font-weight: 400;
+        font-size: clamp(40px, 6vw, 88px);
+        line-height: 0.95;
+      }
+      .one {
+        margin-top: 16px;
+        font-size: 20px;
+        max-width: 32ch;
+      }
+      .actions {
+        margin-top: 24px;
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+      .cell {
+        position: relative;
+        border: 3px solid #000000;
+        background: #ffffff;
+        aspect-ratio: 1 / 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .cell img {
+        width: 78%;
+      }
+      .callout {
+        position: absolute;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-family: 'Kerb Block';
+        font-size: 12px;
+      }
+      .callout b {
+        display: inline-flex;
+        width: 24px;
+        height: 24px;
+        align-items: center;
+        justify-content: center;
+        background: #000000;
+        color: #ffffff;
+        font-weight: 400;
+      }
+      .spec {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        border: 3px solid #000000;
+        border-top: 0;
+        background: #f2efe8;
+      }
+      .spec div {
+        padding: 10px 12px;
+        border-top: 1px solid #000000;
+        font-size: 14px;
+      }
+      .spec dt {
+        font-family: 'Kerb Block';
+        font-size: 12px;
+      }
+      .status {
+        position: absolute;
+        left: 12px;
+        top: 12px;
+      }
+      @media (min-width: 900px) {
+        .hero {
+          grid-template-columns: 5fr 7fr;
+          padding: 48px;
+          align-items: start;
+          gap: 48px;
+        }
+        .cell {
+          aspect-ratio: 4 / 3;
+        }
+        .spec {
+          grid-template-columns: repeat(4, 1fr);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="bar">
+      <img src="../../../src/assets/logo/kerbsense-wordmark-black.svg" alt="Kerb Sense" /><a
+        class="btn btn--green btn--small"
+        >PLAY</a
+      >
+    </div>
+    <section class="hero">
+      <div>
+        <p class="label">PLAY FREE IN THE BROWSER</p>
+        <h1 style="margin-top: 16px">WAIT, AND YOU GET THERE FIRST.</h1>
+        <p class="one">A road-safety game and arcade booth for Singapore students.</p>
+        <div class="actions"><a class="btn btn--green">PLAY</a><a class="btn">BOOTH</a></div>
+      </div>
+      <div>
+        <div class="cell">
+          <span class="label status">DESIGNED, TO BE BUILT</span>
+          <img src="../../../src/assets/v2/renders/booth-green-three-quarter.svg" alt="" />
+          <span class="callout" style="left: 10%; top: 30%"><b>1</b>SCREEN</span>
+          <span class="callout" style="right: 6%; top: 52%"><b>2</b>JOYSTICK</span>
+          <span class="callout" style="left: 18%; bottom: 14%"><b>3</b>BUTTONS X4</span>
+        </div>
+        <dl class="spec">
+          <div>
+            <dt>SIZE</dt>
+            <dd>70 × 65 × 75 cm</dd>
+          </div>
+          <div>
+            <dt>BODY</dt>
+            <dd>12 mm MDF</dd>
+          </div>
+          <div>
+            <dt>CONTROLS</dt>
+            <dd>4 buttons, 1 joystick</dd>
+          </div>
+          <div>
+            <dt>SCREEN</dt>
+            <dd>24 inch monitor</dd>
+          </div>
+        </dl>
+      </div>
+    </section>
+  </body>
+</html>

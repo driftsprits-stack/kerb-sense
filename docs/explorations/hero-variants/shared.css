@@ -1,0 +1,66 @@
+/* Shared base for the hero layout explorations (website shortlist pick 26).
+   Static layouts only, outside the site build. Same copy, colours and art
+   as the site; only the composition changes. */
+@font-face {
+  font-family: 'Kerb Block';
+  src: url('../../../src/assets/fonts/KerbBlock-Regular.woff2') format('woff2');
+}
+* {
+  margin: 0;
+  box-sizing: border-box;
+}
+body {
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  background: #f2efe8;
+  color: #000000;
+}
+.kb {
+  font-family: 'Kerb Block';
+  font-weight: 400;
+}
+.bar {
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  border-bottom: 3px solid #000000;
+}
+.bar img {
+  height: 22px;
+}
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 56px;
+  padding: 14px 24px;
+  border: 3px solid #000000;
+  font-family: 'Kerb Block';
+  font-size: 20px;
+  text-decoration: none;
+  color: #000000;
+}
+.btn--green {
+  background: #178048;
+  border-color: #178048;
+  color: #ffffff;
+}
+.btn--small {
+  min-height: 40px;
+  padding: 8px 12px;
+  font-size: 14px;
+}
+.label {
+  display: inline-block;
+  background: #000000;
+  color: #ffffff;
+  font-family: 'Kerb Block';
+  font-size: 14px;
+  padding: 4px 8px 2px;
+}
+@media (min-width: 768px) {
+  .bar {
+    padding: 0 48px;
+  }
+}

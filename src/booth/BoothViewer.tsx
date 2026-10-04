@@ -22,6 +22,10 @@ const GREEN = new Color('#178048');
 const MODEL_URL = `${import.meta.env.BASE_URL}models/booth-flat.glb`;
 const TARGET = new Vector3(0, 0.33, 0);
 const VISIBLE_HEIGHT_M = 0.92;
+// The booth's height, and the diagonal of its 70 x 65 cm footprint, in metres.
+// From a raised, turned camera the footprint can show along its diagonal.
+const BOOTH_H = 0.75;
+const BOOTH_D = 0.95;
 // With an orthographic camera drei's Outlines thickness is in pixels.
 const OUTLINE_PX = 2;
 const OUTLINE_HIT_PX = 4;
@@ -194,8 +198,12 @@ function BoothModel({
   // changes the target and the loop moves toward it. When the scroll scene
   // drives the booth, its azimuth is the target.
   useFrame((state, delta) => {
-    // Fit the booth to the stage height, whatever its size.
-    const wantedZoom = state.size.height / VISIBLE_HEIGHT_M;
+    // Fit the booth to the stage height, whatever its size. From a raised
+    // camera the booth's depth shows too, so frame its projected height; and
+    // zoom out as the parts move apart, so they stay inside the frame.
+    const polar = controls.current?.getPolarAngle() ?? Math.PI / 2;
+    const projected = (BOOTH_H * Math.sin(polar) + BOOTH_D * Math.abs(Math.cos(polar))) / BOOTH_H;
+    const wantedZoom = state.size.height / (VISIBLE_HEIGHT_M * projected * (1 + 0.6 * explodeT.current));
     if (Math.abs(state.camera.zoom - wantedZoom) > 0.5) {
       state.camera.zoom = wantedZoom;
       state.camera.updateProjectionMatrix();

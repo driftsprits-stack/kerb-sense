@@ -276,4 +276,107 @@ test.describe('redesign', () => {
     await expect(page.getByTestId('clip-link')).toHaveAttribute('href', /play\/$/);
     await expect(page.locator('iframe')).toHaveCount(0);
   });
+
+  test('the shortlist art is in place and decorative (picks 8, 22, 23, 27, 28)', async ({ page }) => {
+    await page.goto(HOME);
+    // Pick 23: every section tab carries its marker, hidden from assistive technology.
+    await expect(page.locator('main h2 svg[aria-hidden="true"]')).toHaveCount(7);
+    // Pick 27: the view control has a readout on screens from 640 px.
+    const wideEnough = (page.viewportSize()?.width ?? 0) >= 640;
+    await expect(page.getByTestId('view-readout')).toBeVisible({ visible: wideEnough });
+    if (wideEnough) await expect(page.getByTestId('view-readout')).toContainText('TURN');
+    // Pick 22: the mark field beside PLAY is decoration only, from 768 px.
+    await expect(page.getByTestId('cipher-patch')).toHaveAttribute('alt', '');
+    // Pick 28: each target has a label and one line of context.
+    await expect(page.locator('[data-testid="targets"] li')).toHaveCount(6);
+    await expect(page.locator('[data-testid="targets"]')).toContainText(
+      'At least 16 run a booth on their own.',
+    );
+    // Pick 8: the grid sits behind the dimension drawing.
+    await expect(page.locator('.ks-grid-ground img')).toHaveCount(1);
+  });
+
+  test('the share images: Kiosk for the home page, Specimen for the other pages (picks 18, 25)', async ({
+    page,
+  }) => {
+    await page.goto(HOME);
+    await expect(page.locator('meta[property="og:image"]')).toHaveAttribute('content', /og-image\.png$/);
+    for (const route of ['./privacy/', './terms/', './404.html']) {
+      await page.goto(route);
+      await expect(page.locator('meta[property="og:image"]')).toHaveAttribute('content', /og-specimen\.png$/);
+    }
+  });
+
+  test('the static views fold into an accordion, and a strip opens its view (pick 6)', async ({
+    browser,
+  }) => {
+    const context = await browser.newContext({
+      reducedMotion: 'reduce',
+      viewport: { width: 1024, height: 768 },
+    });
+    const page = await context.newPage();
+    await page.goto(HOME);
+    await scrollToSelector(page, '[data-testid="booth-scene"]', 100);
+    const fallback = page.getByTestId('booth-fallback');
+    await expect(fallback).toBeVisible();
+    // The current view is open; the other three are strips.
+    await expect(fallback.getByRole('button')).toHaveCount(3);
+    const open = await page
+      .locator('[data-testid^="view-"][aria-pressed="true"]')
+      .getAttribute('data-testid');
+    const current = (open ?? 'view-front').replace('view-', '');
+    await expect(page.getByTestId(`fallback-${current}`)).toHaveCount(0);
+    const next = current === 'side' ? 'back' : 'side';
+    await page.getByTestId(`fallback-${next}`).click();
+    await expect(page.getByTestId(`view-${next}`)).toHaveAttribute('aria-pressed', 'true');
+    await expect(fallback.locator('img')).toHaveAttribute('src', new RegExp(next));
+    await expect(page.getByTestId(`fallback-${current}`)).toBeVisible();
+    await context.close();
+  });
+
+  test('page transitions are declared for the site pages and off under reduced motion (pick 29)', async ({
+    page,
+  }) => {
+    await page.goto(HOME);
+    const declared = await page.evaluate(() =>
+      [...document.styleSheets].some((sheet) =>
+        [...sheet.cssRules].some((rule) => rule.cssText.startsWith('@view-transition')),
+      ),
+    );
+    expect(declared).toBe(true);
+    // A normal navigation still happens: the title and the address change.
+    await page.goto('./privacy/');
+    await expect(page).toHaveTitle('Privacy and cookies | Kerb Sense');
+  });
+
+  test('smooth scrolling is opt-in only (?smooth=1) and never loads otherwise (pick 30)', async ({
+    page,
+  }) => {
+    const lenis: string[] = [];
+    page.on('request', (r) => {
+      if (/lenis-/.test(r.url())) lenis.push(r.url());
+    });
+    await page.goto(HOME);
+    await page.waitForTimeout(500);
+    expect(lenis).toEqual([]);
+    await expect(page.locator('html')).not.toHaveAttribute('data-smooth', 'on');
+    await page.goto('./?copy=default&smooth=1');
+    await expect(page.locator('html')).toHaveAttribute('data-smooth', 'on');
+    expect(lenis.length).toBeGreaterThan(0);
+    // A fresh load of a deep link still reaches its section.
+    const fresh = await page.context().newPage();
+    await fresh.goto('./?copy=default&smooth=1#plan');
+    await expect(fresh.locator('#plan')).toBeInViewport();
+    await fresh.close();
+  });
+
+  test('a deep link lands on its section on a fresh load (S19)', async ({ browser }) => {
+    const context = await browser.newContext();
+    const page = await context.newPage();
+    await page.goto(`${HOME}#plan`);
+    await expect(page.locator('#plan')).toBeInViewport();
+    await page.goto('./?copy=default#team');
+    await expect(page.locator('#team')).toBeInViewport();
+    await context.close();
+  });
 });

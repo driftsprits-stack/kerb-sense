@@ -106,8 +106,14 @@ for (const [device, width, height] of WIDTHS) {
     await go(`[data-tour="${i}"]`, height * 0.45);
     await shot(`booth-tour-${i + 1}`);
   }
-  // The end of the tour: the back view with the parts moved apart.
-  await go('[data-testid="booth-tour"] [data-tour="2"]', height * 0.5 - 300);
+  // The end of the tour: the parts moved apart. The tour ends when the last
+  // explanation's bottom passes the middle of the screen; stop just before.
+  await scene.evaluate(() => {
+    const el = document.querySelector('[data-tour="2"]');
+    const r = el.getBoundingClientRect();
+    window.scrollTo(0, r.bottom + window.scrollY - window.innerHeight / 2 - 8);
+  });
+  await scene.waitForTimeout(900);
   await shot('booth-tour-exploded');
   await go('[data-testid="parts-catalogue"]', 100);
   await scene.click('[data-testid="part-joystick"]').catch(() => null);

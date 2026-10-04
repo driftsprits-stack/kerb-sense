@@ -7,7 +7,9 @@ import {
   VIEW_LABELS,
   isViewName,
   shortestAngle,
+  tiltDegrees,
   tourPose,
+  turnDegrees,
 } from './views';
 
 describe('views', () => {
@@ -56,5 +58,13 @@ describe('atView', () => {
     expect(tourPose(2)).toEqual(tourPose(1));
     expect(tourPose(1).explode).toBe(1);
     expect(tourPose(-1)).toEqual(tourPose(0));
+  });
+
+  it('reads the camera out in whole degrees', () => {
+    expect(turnDegrees(Math.PI)).toBe(180);
+    expect(turnDegrees(-Math.PI / 2)).toBe(270);
+    expect(turnDegrees(2 * Math.PI)).toBe(0);
+    expect(tiltDegrees(Math.PI / 2)).toBe(0);
+    expect(tiltDegrees(0.001)).toBe(90);
   });
 });
