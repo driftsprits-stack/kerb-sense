@@ -1,6 +1,5 @@
 import * as Dialog from '@radix-ui/react-dialog';
 import Logo from './Logo';
-import Token from './Token';
 import { SECTIONS, type SectionId } from '../content';
 
 const base = import.meta.env.BASE_URL;
@@ -14,7 +13,11 @@ export default function Nav({ current }: { current: SectionId | null }) {
   return (
     <header className="field-paper sticky top-0 z-50 border-b-[3px] border-black">
       <nav className="ks-container flex h-8 items-center justify-between gap-3" aria-label="Main">
-        <a href={`${base}#top`} className="shrink-0" aria-label="Kerb Sense, go to the top of the page">
+        <a
+          href={`${base}#top`}
+          className="flex min-h-[44px] shrink-0 items-center"
+          aria-label="Kerb Sense, go to the top of the page"
+        >
           <Logo height={22} />
         </a>
         <p
@@ -74,7 +77,6 @@ export default function Nav({ current }: { current: SectionId | null }) {
                       <Dialog.Close asChild>
                         <a href={`#${s.id}`} className="ks-cell flex items-baseline gap-4 py-3 text-28">
                           <span className="w-6 text-16">{s.number}</span>
-                          <Token name={s.id} className="shrink-0 text-20" />
                           {s.name}
                         </a>
                       </Dialog.Close>

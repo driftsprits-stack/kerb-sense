@@ -93,6 +93,10 @@ test.describe('home page', () => {
 
   test('the fonts are Helvetica Neue, Kerb Block and a Noto Sans JP subset (A17)', async ({ page }) => {
     await page.goto(HOME);
+    // Noto Sans JP is used only far down the page, so wait until every face has loaded.
+    await page.evaluate(async () => {
+      await document.fonts.ready;
+    });
     const fonts = await page.evaluate(() => ({
       body: getComputedStyle(document.body).fontFamily,
       block: getComputedStyle(document.querySelector('.ks-block')!).fontFamily,

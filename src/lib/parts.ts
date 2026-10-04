@@ -104,9 +104,6 @@ export type Vec3 = readonly [number, number, number];
 const EXPLODE: Readonly<Record<string, Vec3>> = {
   screen_glass: [0, 0, 0.32],
   joystick: [0, 0.28, 0],
-  joystick_button: [0, 0.28, 0],
-  joystick_shaft: [0, 0.28, 0],
-  joystick_dust_washer: [0, 0.28, 0],
   button_up: [0, 0.2, 0.14],
   button_down: [0, 0.2, -0.04],
   button_left: [-0.12, 0.2, 0.05],

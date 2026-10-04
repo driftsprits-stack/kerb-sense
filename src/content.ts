@@ -36,9 +36,11 @@ export const SECTIONS = [
 export type SectionId = (typeof SECTIONS)[number]['id'];
 
 export const HERO = {
-  body: 'A road-safety game and arcade booth for Singapore students.',
+  body: 'A free browser road-safety game for Singapore students, with a school arcade booth planned.',
   play: 'PLAY',
   booth: 'BOOTH',
+  pauseMotion: 'Pause the moving stripes and the game clip',
+  resumeMotion: 'Play the moving stripes and the game clip',
   boothAlt:
     'The Kerb Sense arcade booth design, seen from the front left: a white tabletop cabinet with a black marquee, a screen, four green buttons and a joystick.',
 } as const;
@@ -47,15 +49,15 @@ export const PROBLEM = {
   body: 'Phones pull eyes off the road at crossings.',
   chart: {
     title: 'Road fatalities in Singapore',
-    alt: 'A slope chart. Road fatalities rose from 142 in 2024 to 149 in 2025. Elderly pedestrian fatalities rose from 11 to 27.',
+    alt: 'Two bar charts. Road deaths in Singapore rose from 142 in 2024 to 149 in 2025, up 5%. Elderly pedestrian deaths rose from 11 to 27, up 145%.',
     series: [
-      { label: 'ALL ROAD USERS', from: 142, to: 149 },
-      { label: 'ELDERLY PEDESTRIANS', from: 11, to: 27 },
+      { label: 'ALL ROAD USERS', title: 'Road deaths', from: 142, to: 149 },
+      { label: 'ELDERLY PEDESTRIANS', title: 'Elderly pedestrian deaths', from: 11, to: 27 },
     ],
     years: ['2024', '2025'],
   },
   source: 'Source: Singapore Police Force, Annual Road Traffic Situation 2025',
-  caveat: 'Not caused by phones or students',
+  caveat: 'These figures do not identify phone use or student involvement.',
 } as const;
 
 export const BOOTH = {
@@ -94,11 +96,16 @@ export const BOOTH = {
     },
   ],
   detailEmpty: 'SELECT A PART',
+  manualNote: 'Manual view. Scrolling to the next explanation resumes the tour.',
+  // The spec strip: one big number, its unit and a short label each, like a
+  // product spec sheet. From the proposal and the Blender model.
   specs: [
-    ['STATUS', 'DESIGNED'],
-    ['SIZE', '70 X 65 X 75 CM'],
-    ['MATERIAL', '12 MM MDF'],
-    ['CONTROLS', 'JOYSTICK + 4 BUTTONS'],
+    { value: '75', unit: 'CM', label: 'TALL' },
+    { value: '70 X 65', unit: 'CM', label: 'FOOTPRINT' },
+    { value: '24', unit: 'IN', label: 'SCREEN' },
+    { value: '12', unit: 'MM', label: 'MDF BODY' },
+    { value: '4', unit: '+1', label: 'BUTTONS, JOYSTICK' },
+    { value: '3', unit: '', label: 'STATIONS PLANNED' },
   ],
 } as const;
 
@@ -130,6 +137,7 @@ export const PLAN = {
     { month: 6, what: 'Report, toolkit, handover' },
   ],
   targetLabel: 'TARGET',
+  targetsLabel: 'TARGETS',
   atLeast: 'AT LEAST',
   // One big value, a short label and one line of context (shortlist pick 28).
   // Facts from the proposal, section 6.
@@ -175,14 +183,14 @@ export const PLAN = {
 } as const;
 
 export const SAFETY = {
-  body: 'The website and the game keep nothing. Play happens only in school.',
+  body: 'The website and the game keep nothing. School booth sessions are planned.',
   items: [
     { id: 'accounts', label: 'NO ACCOUNTS', line: 'No sign-up, no profiles.' },
     { id: 'storage', label: 'NOTHING STORED', line: 'No cookies, no analytics, no data.' },
     {
       id: 'stationary',
       label: 'PLAYED ONLY WHEN STATIONARY',
-      line: 'At a booth, with school staff present.',
+      line: 'Play only while stationary, away from traffic.',
     },
   ],
 } as const;
@@ -195,12 +203,14 @@ export const BUDGET = {
   chartAlt:
     'A bar chart of the requested budget: materials and logistics S$1,300, professional costs S$850, marketing S$450, food S$400, venue S$0.',
   lines: [
-    { category: 'MATERIALS', amount: 1300 },
-    { category: 'PROFESSIONAL', amount: 850 },
-    { category: 'MARKETING', amount: 450 },
-    { category: 'FOOD', amount: 400 },
-    { category: 'VENUE', amount: 0 },
+    { category: 'MATERIALS', label: 'Materials and logistics', amount: 1300 },
+    { category: 'PROFESSIONAL', label: 'Illustration, sound, translation', amount: 850 },
+    { category: 'MARKETING', label: 'Marketing and publicity', amount: 450 },
+    { category: 'FOOD', label: 'Food at playtests', amount: 400 },
+    { category: 'VENUE', label: 'Venue', amount: 0 },
   ],
+  totalRow: 'Total requested',
+  venueNote: 'Venue: S$0 (schools host the booth)',
   source: 'Source: the Kerb Sense proposal, section 9',
 } as const;
 
