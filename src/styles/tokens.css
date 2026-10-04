@@ -22,6 +22,17 @@
   font-display: swap;
 }
 
+/* Space Grotesk: the text face (owner decision, October 2026), replacing
+   Helvetica Neue. Its squared details match Kerb Block. Variable 300 to 700,
+   Latin only, self-hosted. Licence: SIL OFL 1.1 (SpaceGrotesk-OFL.txt). */
+@font-face {
+  font-family: 'Space Grotesk';
+  src: url('../assets/fonts/SpaceGrotesk-Variable-latin.woff2') format('woff2');
+  font-weight: 300 700;
+  font-style: normal;
+  font-display: swap;
+}
+
 /* Noto Sans JP, subset to the approved Japanese strings in CONTENT.md. */
 @font-face {
   font-family: 'Noto Sans JP Subset';
@@ -39,8 +50,8 @@
   --color-paper: #f2efe8;
 
   --font-*: initial;
-  --font-sans: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-  --font-block: 'Kerb Block', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-sans: 'Space Grotesk', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-block: 'Kerb Block', 'Space Grotesk', 'Helvetica Neue', Helvetica, Arial, sans-serif;
   --font-jp: 'Noto Sans JP Subset', 'Hiragino Sans', 'Yu Gothic', sans-serif;
 
   /* Type scale from DESIGN.md: 12 / 14 / 16 / 20 / 28 / 40 / 64 / 96 / 160. */
@@ -216,7 +227,7 @@
   }
 
   /* Every heading, title, button, label and number is Kerb Block. Only
-     sentences are Helvetica Neue. Lowercase input maps to capitals. */
+     sentences are Space Grotesk. Lowercase input maps to capitals. */
   .ks-block,
   .ks-display,
   .ks-h3,
@@ -238,7 +249,7 @@
     font-size: var(--text-28);
     line-height: 1.1;
   }
-  /* The one sentence under each title. Helvetica Neue, at most 25 words. */
+  /* The one sentence under each title. Space Grotesk, at most 25 words. */
   .ks-summary {
     font-weight: 400;
     font-size: var(--text-20);
@@ -483,25 +494,6 @@
   }
 }
 
-/* The hero LED dot matrix: a slow drift, transform only. It stops for reduced motion. */
-@keyframes ks-led-drift {
-  from {
-    transform: translate3d(-3%, 0, 0) scale(1.08);
-  }
-  to {
-    transform: translate3d(3%, -2%, 0) scale(1.14);
-  }
-}
-.ks-led-drift {
-  animation: ks-led-drift 14s ease-in-out infinite alternate;
-  will-change: transform;
-}
-@media (prefers-reduced-motion: reduce) {
-  .ks-led-drift {
-    animation: none;
-  }
-}
-
 /* A square grid behind the dimension drawing (website shortlist pick 8):
    paper lines on white, so the drawing stays the strongest thing. The grid
    stops before the drawing's captions (at 66 %), so no text sits on it. */
@@ -561,4 +553,29 @@ html.lenis body {
 }
 .lenis [data-lenis-prevent] {
   overscroll-behavior: contain;
+}
+
+/* The hero's crossing bars (Ahoy): white bars across the green field,
+   drifting one bar pair sideways, then repeating. Transform only. */
+.ks-zebra {
+  --bar: clamp(48px, 6vw, 96px);
+  width: calc(100% + 2 * var(--bar));
+  background-image: url('../assets/art/zebra-tile.svg');
+  background-size: calc(2 * var(--bar)) 100%;
+  background-repeat: repeat-x;
+  animation: ks-zebra-drift 9s linear infinite;
+  will-change: transform;
+}
+@keyframes ks-zebra-drift {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(calc(-2 * var(--bar)), 0, 0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ks-zebra {
+    animation: none;
+  }
 }

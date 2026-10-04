@@ -4,7 +4,7 @@
 // planned, the grant is requested, the numbers are targets.
 // Each section has one heading (from the copy pool) and at most 25 words
 // of body text. Display text is set in Kerb Block, which has capitals,
-// digits and a few marks only. Sentences are set in Helvetica Neue.
+// digits and a few marks only. Sentences are set in Space Grotesk.
 
 export const SITE = {
   name: 'Kerb Sense',

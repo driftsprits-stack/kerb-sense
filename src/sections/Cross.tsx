@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react';
-import cipher from '../assets/art/cipher-patch.svg';
 import ErrorBoundary from '../components/ErrorBoundary';
 import Section from '../components/Section';
 import Stepper from '../components/Stepper';
@@ -131,7 +130,7 @@ export default function Cross() {
           >
             <Clip />
           </ErrorBoundary>
-          <div className="mt-4 flex items-stretch gap-4">
+          <div className="mt-4">
             <a
               href={playUrl}
               className="ks-button ks-button--green w-full md:w-auto md:min-w-[200px]"
@@ -139,17 +138,6 @@ export default function Cross() {
             >
               {CROSS.play}
             </a>
-            {/* A small field of abstract marks beside PLAY (shortlist pick 22). Decoration only. */}
-            <img
-              src={cipher}
-              alt=""
-              width={320}
-              height={64}
-              loading="lazy"
-              decoding="async"
-              className="hidden min-w-0 flex-1 object-cover object-left md:block"
-              data-testid="cipher-patch"
-            />
           </div>
         </div>
       </div>

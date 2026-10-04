@@ -1,6 +1,5 @@
 import * as Dialog from '@radix-ui/react-dialog';
 import Logo from './Logo';
-import Token from './Token';
 import { SECTIONS, type SectionId } from '../content';
 
 const base = import.meta.env.BASE_URL;
@@ -74,7 +73,6 @@ export default function Nav({ current }: { current: SectionId | null }) {
                       <Dialog.Close asChild>
                         <a href={`#${s.id}`} className="ks-cell flex items-baseline gap-4 py-3 text-28">
                           <span className="w-6 text-16">{s.number}</span>
-                          <Token name={s.id} className="shrink-0 text-20" />
                           {s.name}
                         </a>
                       </Dialog.Close>

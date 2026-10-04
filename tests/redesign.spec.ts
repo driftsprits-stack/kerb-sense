@@ -39,15 +39,29 @@ test.describe('redesign', () => {
     await expect(page).toHaveTitle('Kerb Sense');
   });
 
-  test('the hero text sits on solid black and the dots span the field', async ({ page }) => {
+  test('the hero is an Ahoy thumbnail: text on one solid green panel, drifting bars, the side silhouette', async ({
+    page,
+  }) => {
     await page.goto(HOME);
     const panel = page.locator('[data-hero="copy"]');
-    await expect(panel).toHaveCSS('background-color', 'rgb(0, 0, 0)');
-    const [led, hero] = await Promise.all([
-      page.locator('[data-hero="led"]').boundingBox(),
+    await expect(panel).toHaveCSS('background-color', 'rgb(23, 128, 72)');
+    // The katakana sits inside the panel, not off its edge.
+    if ((page.viewportSize()?.width ?? 0) >= 768) {
+      const [kana, box] = await Promise.all([
+        panel.locator('[lang="ja"]').boundingBox(),
+        panel.boundingBox(),
+      ]);
+      expect((kana?.x ?? 0) + (kana?.width ?? 0)).toBeLessThanOrEqual((box?.x ?? 0) + (box?.width ?? 0));
+    }
+    const [bars, hero] = await Promise.all([
+      page.locator('[data-hero="stripes"]').boundingBox(),
       page.getByTestId('hero').boundingBox(),
     ]);
-    expect(led?.width ?? 0).toBeGreaterThanOrEqual((hero?.width ?? 0) * 0.98);
+    expect(bars?.width ?? 0).toBeGreaterThanOrEqual(hero?.width ?? 0);
+    await expect(page.locator('[data-hero="stripes"]')).toHaveCSS('animation-name', 'ks-zebra-drift');
+    await expect(page.locator('[data-hero="booth"]')).toHaveAttribute('src', /booth-silhouette-side/);
+    // The panel is above the silhouette, so the headline is never covered.
+    await expect(panel).toHaveCSS('z-index', '10');
   });
 
   test('there is one navigation per screen size (rail from 1280 px, menu below)', async ({ page }) => {
@@ -226,11 +240,11 @@ test.describe('redesign', () => {
     expect(stops).toEqual([]);
   });
 
-  test('reduced motion shows still dots and a readable booth and stepper (A4, A14)', async ({ browser }) => {
+  test('reduced motion shows still bars and a readable booth and stepper (A4, A14)', async ({ browser }) => {
     const context = await browser.newContext({ reducedMotion: 'reduce' });
     const page = await context.newPage();
     await page.goto(HOME);
-    await expect(page.locator('[data-hero="led"]')).toHaveCSS('animation-name', 'none');
+    await expect(page.locator('[data-hero="stripes"]')).toHaveCSS('animation-name', 'none');
     await scrollToSelector(page, '[data-testid="booth-scene"]', 100);
     await expect(page.getByTestId('booth-tour').locator('li')).toHaveCount(3);
     await expect(page.getByTestId('step-panel')).toContainText('WAIT');
@@ -277,16 +291,17 @@ test.describe('redesign', () => {
     await expect(page.locator('iframe')).toHaveCount(0);
   });
 
-  test('the shortlist art is in place and decorative (picks 8, 22, 23, 27, 28)', async ({ page }) => {
+  test('the shortlist art is in place (picks 8, 27, 28), without markers or the mark strip', async ({
+    page,
+  }) => {
     await page.goto(HOME);
-    // Pick 23: every section tab carries its marker, hidden from assistive technology.
-    await expect(page.locator('main h2 svg[aria-hidden="true"]')).toHaveCount(7);
+    // The owner removed the section markers (pick 23) and the mark strip (pick 22).
+    await expect(page.locator('main h2 svg')).toHaveCount(0);
+    await expect(page.getByTestId('cipher-patch')).toHaveCount(0);
     // Pick 27: the view control has a readout on screens from 640 px.
     const wideEnough = (page.viewportSize()?.width ?? 0) >= 640;
     await expect(page.getByTestId('view-readout')).toBeVisible({ visible: wideEnough });
     if (wideEnough) await expect(page.getByTestId('view-readout')).toContainText('TURN');
-    // Pick 22: the mark field beside PLAY is decoration only, from 768 px.
-    await expect(page.getByTestId('cipher-patch')).toHaveAttribute('alt', '');
     // Pick 28: each target has a label and one line of context.
     await expect(page.locator('[data-testid="targets"] li')).toHaveCount(6);
     await expect(page.locator('[data-testid="targets"]')).toContainText(
