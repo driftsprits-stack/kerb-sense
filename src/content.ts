@@ -4,7 +4,7 @@
 // planned, the grant is requested, the numbers are targets.
 // Each section has one heading (from the copy pool) and at most 25 words
 // of body text. Display text is set in Kerb Block, which has capitals,
-// digits and a few marks only. Sentences are set in Space Grotesk.
+// digits and a few marks only. Sentences are set in Helvetica Neue.
 
 export const SITE = {
   name: 'Kerb Sense',
@@ -47,10 +47,10 @@ export const PROBLEM = {
   body: 'Phones pull eyes off the road at crossings.',
   chart: {
     title: 'Road fatalities in Singapore',
-    alt: 'A slope chart. Road fatalities rose from 142 in 2024 to 149 in 2025. Elderly pedestrian fatalities rose from 11 to 27.',
+    alt: 'Two bar charts. Road deaths in Singapore rose from 142 in 2024 to 149 in 2025, up 5%. Elderly pedestrian deaths rose from 11 to 27, up 145%.',
     series: [
-      { label: 'ALL ROAD USERS', from: 142, to: 149 },
-      { label: 'ELDERLY PEDESTRIANS', from: 11, to: 27 },
+      { label: 'ALL ROAD USERS', title: 'Road deaths', from: 142, to: 149 },
+      { label: 'ELDERLY PEDESTRIANS', title: 'Elderly pedestrian deaths', from: 11, to: 27 },
     ],
     years: ['2024', '2025'],
   },
@@ -195,12 +195,14 @@ export const BUDGET = {
   chartAlt:
     'A bar chart of the requested budget: materials and logistics S$1,300, professional costs S$850, marketing S$450, food S$400, venue S$0.',
   lines: [
-    { category: 'MATERIALS', amount: 1300 },
-    { category: 'PROFESSIONAL', amount: 850 },
-    { category: 'MARKETING', amount: 450 },
-    { category: 'FOOD', amount: 400 },
-    { category: 'VENUE', amount: 0 },
+    { category: 'MATERIALS', label: 'Materials and logistics', amount: 1300 },
+    { category: 'PROFESSIONAL', label: 'Illustration, sound, translation', amount: 850 },
+    { category: 'MARKETING', label: 'Marketing and publicity', amount: 450 },
+    { category: 'FOOD', label: 'Food at playtests', amount: 400 },
+    { category: 'VENUE', label: 'Venue', amount: 0 },
   ],
+  totalRow: 'Total requested',
+  venueNote: 'Venue: S$0 (schools host the booth)',
   source: 'Source: the Kerb Sense proposal, section 9',
 } as const;
 

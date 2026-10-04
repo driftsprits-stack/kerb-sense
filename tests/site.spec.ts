@@ -91,8 +91,12 @@ test.describe('home page', () => {
     await expect(page.locator('h2[data-slot="section.booth.title"]')).toContainText('The booth.');
   });
 
-  test('the fonts are Space Grotesk, Kerb Block and a Noto Sans JP subset (A17)', async ({ page }) => {
+  test('the fonts are Helvetica Neue, Kerb Block and a Noto Sans JP subset (A17)', async ({ page }) => {
     await page.goto(HOME);
+    // Noto Sans JP is used only far down the page, so wait until every face has loaded.
+    await page.evaluate(async () => {
+      await document.fonts.ready;
+    });
     const fonts = await page.evaluate(() => ({
       body: getComputedStyle(document.body).fontFamily,
       block: getComputedStyle(document.querySelector('.ks-block')!).fontFamily,
@@ -101,12 +105,12 @@ test.describe('home page', () => {
       noto: document.fonts.check('16px "Noto Sans JP Subset"'),
       faces: [...document.fonts].map((f) => f.family),
     }));
-    expect(fonts.body).toMatch(/^"?Space Grotesk/);
+    expect(fonts.body).toMatch(/Helvetica Neue/);
     expect(fonts.block).toMatch(/Kerb Block/);
     expect(fonts.ja).toMatch(/Noto Sans JP/);
     expect(fonts.kerbBlock).toBe(true);
     expect(fonts.noto).toBe(true);
-    expect(new Set(fonts.faces)).toEqual(new Set(['Kerb Block', 'Space Grotesk', 'Noto Sans JP Subset']));
+    expect(new Set(fonts.faces)).toEqual(new Set(['Kerb Block', 'Noto Sans JP Subset']));
     // Every Japanese string is approved, carries lang="ja" and an English meaning.
     const ja = await page.locator('[lang="ja"]').evaluateAll((els) =>
       els.map((el) => ({

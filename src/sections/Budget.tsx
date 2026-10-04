@@ -1,9 +1,8 @@
 import Section from '../components/Section';
-import { BudgetChart } from '../components/Drawings';
+import { BudgetBars } from '../components/Charts';
 import { StatusLabel } from '../components/LabelBlock';
 import { BUDGET } from '../content';
 import { SLOT } from '../copy';
-import { CHART_BUDGET } from '../lib/artwork';
 
 export default function Budget() {
   return (
@@ -16,19 +15,7 @@ export default function Budget() {
     >
       <div className="grid gap-4 md:grid-cols-12">
         <div className="md:col-span-8">
-          {CHART_BUDGET ? (
-            <img
-              src={CHART_BUDGET}
-              alt={BUDGET.chartAlt}
-              width={640}
-              height={260}
-              loading="lazy"
-              decoding="async"
-              className="w-full"
-            />
-          ) : (
-            <BudgetChart lines={BUDGET.lines} title={BUDGET.chartAlt} />
-          )}
+          <BudgetBars />
         </div>
         <div className="md:col-span-4">
           <div className="inline-block bg-green px-4 py-3 text-white" data-testid="budget-total">

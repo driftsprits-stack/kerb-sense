@@ -14,7 +14,7 @@ export function partImage(key: string): string {
   return partImages[`../assets/${key}`] ?? '';
 }
 
-const BLOCK = "'Kerb Block', 'Space Grotesk', 'Helvetica Neue', Helvetica, Arial, sans-serif";
+const BLOCK = "'Kerb Block', 'Helvetica Neue', Helvetica, Arial, sans-serif";
 
 interface Series {
   label: string;

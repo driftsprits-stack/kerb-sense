@@ -189,9 +189,11 @@ test.describe('redesign', () => {
   test('the problem reads top to bottom: chart, caveat, source', async ({ page }) => {
     await page.goto(HOME);
     const ys = await Promise.all(
-      ['#problem img', '[data-testid="problem-caveat"]', '[data-testid="problem-source"]'].map(
-        async (s) => (await page.locator(s).first().boundingBox())?.y ?? 0,
-      ),
+      [
+        '[data-testid="problem-chart"]',
+        '[data-testid="problem-caveat"]',
+        '[data-testid="problem-source"]',
+      ].map(async (s) => (await page.locator(s).first().boundingBox())?.y ?? 0),
     );
     expect(ys[1]).toBeGreaterThan(ys[0] as number);
     expect(ys[2]).toBeGreaterThan(ys[1] as number);
@@ -393,5 +395,29 @@ test.describe('redesign', () => {
     await page.goto('./?copy=default#team');
     await expect(page.locator('#team')).toBeInViewport();
     await context.close();
+  });
+
+  test('the charts play once when they scroll into view, and show final values under reduced motion', async ({
+    browser,
+  }) => {
+    const moving = await browser.newContext();
+    const page = await moving.newPage();
+    await page.goto(HOME);
+    const chart = page.getByTestId('problem-chart');
+    // Before it is seen, the numbers wait at zero.
+    await expect(chart.locator('[data-count="149"]')).toHaveText('0');
+    await chart.scrollIntoViewIfNeeded();
+    await expect(chart.locator('[data-count="149"]')).toHaveText('149', { timeout: 4000 });
+    await expect(chart.locator('[data-count="145"]')).toHaveText('+145%');
+    await page.getByTestId('budget-chart').scrollIntoViewIfNeeded();
+    await expect(page.getByTestId('budget-chart').locator('[data-count="1300"]')).toHaveText('S$1,300', {
+      timeout: 4000,
+    });
+    await moving.close();
+    const still = await browser.newContext({ reducedMotion: 'reduce' });
+    const p2 = await still.newPage();
+    await p2.goto(HOME);
+    await expect(p2.getByTestId('problem-chart').locator('[data-count="27"]')).toHaveText('27');
+    await still.close();
   });
 });
